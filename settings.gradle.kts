@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "employee-task-manager"
+rootProject.name = "AndroidTraining"
 include(":app")

@@ -1,0 +1,7 @@
+2026-11-04 17:33:21.762  DEBUG crash_dump64
+Executable: /vendor/bin/hw/android.hardware.uwb-service
+Cmdline: /vendor/bin/hw/android.hardware.uwb-service /dev/uwb0
+signal 6 (SIGABRT), code -1 (SI_QUEUE)
+Abort message: failed to open the serial device: Os { code: 6, kind: Uncategorized, message: "No such device or address" }
+
+Source: Logcat excerpt supplied during the Day 2 debugging lab.

@@ -9,35 +9,35 @@ Currently, the project consists of a single Activity scaffold:
 ---
 
 ## 2. Target Architecture (MVVM Clean Architecture - Planned)
-To satisfy the business requirements ("Employees must view tasks, add tasks, mark complete, and see status"), the project will adopt the standard Android MVVM (Model-View-ViewModel) architecture:
+To satisfy the business requirements and align with the bootcamp architecture specifications, the application follows a 4-tier layer structure:
 
-### A. Screen / UI Layer
-- **Activities / Fragments / Adapters (or Jetpack Compose):** Display the task list, render task items with status indicators, and handle user input (adding tasks, toggling completion).
-- Observes reactive streams (`StateFlow` / `LiveData`) exposed by the ViewModel.
+### A. SCREEN
+- **TaskListScreen:** Renders the task UI.
+- **User taps action:** Handles user interactions and input events.
 
-### B. ViewModel Layer
-- **`TaskViewModel`:** Holds and manages UI-related data in a lifecycle-conscious way.
-- Exposes state (`StateFlow<TaskUiState>`) to the UI layer and handles user actions (e.g., `addTask()`, `toggleTaskComplete()`).
+### B. VIEWMODEL
+- **State + events:** Manages UI state streams and event handling.
+- **Validation:** Validates inputs before processing.
 
-### C. Repository Layer
-- **`TaskRepository`:** Single source of truth for task data operations.
-- Abstracts data sources (Room database vs. network/mock sources).
+### C. REPOSITORY
+- **Business data:** Processes business logic and data models.
+- **Read / write:** Coordinates read and write operations between UI/ViewModel and Storage.
 
-### D. Storage / Database Layer
-- **Room Database (`TaskDao`, `TaskEntity`, `AppDatabase`):** Local SQLite persistence ensuring tasks survive app restarts.
+### D. STORAGE
+- **Local data:** Manages local data models and structures.
+- **Future persistence:** Prepared for robust local persistence (e.g., Room Database / SQLite) in future bootcamp phases.
 
 ---
 
 ## 3. Data Flow
 
-1. **User Interaction:** User taps "Add Task" or toggles task completion in the UI (`EmployeeTaskManagerActivity` / UI components).
-2. **ViewModel Action:** UI invokes a method on `TaskViewModel`.
-3. **Repository Operation:** `TaskViewModel` calls `TaskRepository` to insert or update the task.
-4. **Database Persistence:** `TaskRepository` executes the query via `TaskDao` on a background dispatcher (Kotlin Coroutines).
-5. **State Emission:** Updated task list flows back from the database through `TaskDao` -> `TaskRepository` -> `TaskViewModel` (`StateFlow`), which automatically updates the UI.
+1. **Screen Layer:** User taps action on `TaskListScreen`.
+2. **ViewModel Layer:** ViewModel processes events, validates input, and updates state (`StateFlow`).
+3. **Repository Layer:** Repository handles business data read/write requests.
+4. **Storage Layer:** Storage manages local data and future persistence.
 
 ---
 
 ## 4. Architecture Diagram
 
-See [architecture.mmd](file:///C:/Users/MAZEEF/AndroidStudioProjects/employeetaskmanager/docs/diagrams/architecture.mmd) for the Mermaid sequence/component diagram.
+See [architecture.mmd](file:///C:/Users/MAZEEF/AndroidStudioProjects/employeetaskmanager/docs/diagrams/architecture.mmd) for the Mermaid architecture diagram matching the bootcamp specification.

@@ -1,0 +1,25 @@
+graph TD
+    subgraph UI["UI Layer (View)"]
+        A[EmployeeTaskManagerActivity] -->|Observes StateFlow / LiveData| B[TaskViewModel]
+        A -->|User Actions / Intents| B
+    end
+
+    subgraph ViewModel["ViewModel Layer"]
+        B -->|Requests Data / Mutations| C[TaskRepository]
+    end
+
+    subgraph Data["Data & Storage Layer"]
+        C -->|Queries / Updates| D[TaskDao]
+        D -->|Accesses| E[(Room Database / SQLite)]
+        E -->|Data Flow / Flow emission| C
+        C -->|Task List Flow| B
+        B -->|Updated StateFlow| A
+    end
+
+    classDef ui fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
+    classDef vm fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
+    classDef data fill:#fff3e0,stroke:#e65100,stroke-width:2px;
+
+    class A ui;
+    class B vm;
+    class C,D,E data;

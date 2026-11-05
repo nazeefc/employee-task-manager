@@ -1,31 +1,40 @@
-# Employee Task Manager
+# Employee Task Manager (`employeetaskmanager`)
 
-A Kotlin Android starter app. The Gradle root project is named `AndroidTraining`.
+Employee Task Manager is an Android application developed as part of the Android Developer Bootcamp. The app enables employees to view tasks, add tasks, mark tasks complete, and see their status.
 
 ## Requirements
 
 - Android Studio with its bundled JDK
-- Android SDK Platform 35 and Platform Tools
-- Android emulator or USB-debugging-enabled Android device
+- Android SDK Platform 35 and Android SDK Platform Tools
+- An Android emulator or a physical Android device with USB debugging enabled
 
-The app supports Android 7.0 (API 24) and newer. It uses Java 11 compatibility. Gradle is included via the project wrapper.
+The app supports Android 7.0 (API 24) and newer. It uses Java 11 compatibility and includes the Gradle wrapper, so a separate JDK or Gradle installation is not needed. Gradle sync requires an internet connection to download the Android Gradle Plugin and dependencies.
 
-## Open and run
+## Documentation & Setup Notes
 
-1. Open the project root in Android Studio and allow Gradle sync to finish.
-2. Start an emulator or connect a device.
-3. Select the `app` run configuration and click **Run**.
+- Day 1 environment setup and troubleshooting details are documented in `docs/day1/SETUP_ISSUES.md` and screenshots in `docs/day1/screenshots/`.
 
-Or build and install from PowerShell at the project root:
+## Get the project
+
+Open the existing project folder directly in Android Studio via **File → Open**.
+
+## Sync and run
+
+1. In Android Studio, choose **File → Open** and select the project root.
+2. Allow Gradle sync to complete. If prompted, install Android SDK Platform 35.
+3. Start an emulator from Device Manager, or connect a phone with USB debugging enabled.
+4. Select the `app` run configuration and click **Run**.
+
+To build and install from PowerShell at the project root:
 
 ```powershell
 .\gradlew.bat :app:installDebug
 ```
 
-The app ID is `com.example.employee_task_manager`; its launcher activity is `EmployeeTaskManagerActivity`.
+To launch the installed app from the terminal:
 
-## Setup notes
+```powershell
+adb shell am start -n com.example.employee_task_manager/.EmployeeTaskManagerActivity
+```
 
-Android Studio's bundled JDK was used because Java was not on the system PATH. Node.js, npm, and Codex CLI are not required to build the app.
-
-Day 1 setup details and evidence are in `docs/day1/`.
+If `adb devices` shows no device, start the emulator or check the phone's USB debugging authorization.

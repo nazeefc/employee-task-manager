@@ -1,25 +1,28 @@
 graph TD
-    subgraph UI["UI Layer (View)"]
-        A[EmployeeTaskManagerActivity] -->|Observes StateFlow / LiveData| B[TaskViewModel]
-        A -->|User Actions / Intents| B
+    subgraph Screen["SCREEN"]
+        S1["TaskListScreen"]
+        S2["User taps action"]
     end
 
-    subgraph ViewModel["ViewModel Layer"]
-        B -->|Requests Data / Mutations| C[TaskRepository]
+    subgraph ViewModel["VIEWMODEL"]
+        V1["State + events"]
+        V2["Validation"]
     end
 
-    subgraph Data["Data & Storage Layer"]
-        C -->|Queries / Updates| D[TaskDao]
-        D -->|Accesses| E[(Room Database / SQLite)]
-        E -->|Data Flow / Flow emission| C
-        C -->|Task List Flow| B
-        B -->|Updated StateFlow| A
+    subgraph Repository["REPOSITORY"]
+        R1["Business data"]
+        R2["Read / write"]
     end
 
-    classDef ui fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
-    classDef vm fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
-    classDef data fill:#fff3e0,stroke:#e65100,stroke-width:2px;
+    subgraph Storage["STORAGE"]
+        St1["Local data"]
+        St2["Future persistence"]
+    end
 
-    class A ui;
-    class B vm;
-    class C,D,E data;
+    Screen -->|Action / Event| ViewModel
+    ViewModel -->|Read / Write| Repository
+    Repository -->|Persist / Fetch| Storage
+
+    classDef layer fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
+    class Screen,ViewModel,Repository,Storage layer;
+

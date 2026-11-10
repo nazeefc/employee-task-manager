@@ -1,28 +1,25 @@
-graph TD
-    subgraph Screen["SCREEN"]
-        S1["TaskListScreen"]
-        S2["User taps action"]
-    end
+flowchart LR
+    View["Activity / View"]
+    VM["TaskViewModel with TaskUiState StateFlow"]
+    Repo["TaskRepository"]
+    API["REST API"]
+    DAO["TaskDao"]
+    Room[("Room Database: TaskEntity")]
 
-    subgraph ViewModel["VIEWMODEL"]
-        V1["State + events"]
-        V2["Validation"]
-    end
+    View -->|User actions| VM
+    VM -->|Refresh create or toggle| Repo
+    Repo -->|GET refresh| API
+    API -->|Successful task response| Repo
+    Repo -->|Persist successful remote read| DAO
+    Repo -->|Create or PATCH completion first| API
+    API -->|Mutation success only| Repo
+    Repo -->|Write after mutation success| DAO
+    DAO -->|Observe and query| Room
+    Room -->|Room-backed query results| DAO
+    DAO -->|Flow of mapped Tasks| Repo
+    Repo -->|Tasks and operation outcomes| VM
+    VM -->|StateFlow| View
 
-    subgraph Repository["REPOSITORY"]
-        R1["Business data"]
-        R2["Read / write"]
-    end
-
-    subgraph Storage["STORAGE"]
-        St1["Local data"]
-        St2["Future persistence"]
-    end
-
-    Screen -->|Action / Event| ViewModel
-    ViewModel -->|Read / Write| Repository
-    Repository -->|Persist / Fetch| Storage
-
-    classDef layer fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
-    class Screen,ViewModel,Repository,Storage layer;
-
+    API -.->|Read failure retains cache or reports Error| Repo
+    API -.->|Mutation failure means no Room write| Repo
+    VM -.->|"Offline create and toggle rejected with user feedback; no queue or retry"| View

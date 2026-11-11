@@ -1,25 +1,15 @@
 flowchart LR
-    View["Activity / View"]
-    VM["TaskViewModel with TaskUiState StateFlow"]
+    View["EmployeeTaskManagerActivity (View)"]
+    VM["TaskViewModel (StateFlow)"]
     Repo["TaskRepository"]
-    API["REST API"]
-    DAO["TaskDao"]
-    Room[("Room Database: TaskEntity")]
+    API["REST API (GET /todos)"]
 
-    View -->|User actions| VM
-    VM -->|Refresh create or toggle| Repo
-    Repo -->|GET refresh| API
-    API -->|Successful task response| Repo
-    Repo -->|Persist successful remote read| DAO
-    Repo -->|Create or PATCH completion first| API
-    API -->|Mutation success only| Repo
-    Repo -->|Write after mutation success| DAO
-    DAO -->|Observe and query| Room
-    Room -->|Room-backed query results| DAO
-    DAO -->|Flow of mapped Tasks| Repo
-    Repo -->|Tasks and operation outcomes| VM
-    VM -->|StateFlow| View
+    View -->|User refresh / init| VM
+    VM -->|Fetch tasks| Repo
+    Repo -->|GET todos| API
+    API -->|JSON TodoDto list| Repo
+    Repo -->|"Mapped List<Task>"| VM
+    VM -->|"TaskUiState StateFlow"| View
 
-    API -.->|Read failure retains cache or reports Error| Repo
-    API -.->|Mutation failure means no Room write| Repo
-    VM -.->|"Offline create and toggle rejected with user feedback; no queue or retry"| View
+    API -.->|Internet / Server / Parsing Error| Repo
+    Repo -.->|Refresh failure retains in-memory cache| VM

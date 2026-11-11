@@ -8,12 +8,18 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.employee_task_manager.R
 import com.example.employee_task_manager.data.Task
 
-class TaskAdapter(private val tasks: List<Task>) : RecyclerView.Adapter<TaskAdapter.TaskViewHolder>() {
+class TaskAdapter(private val tasks: MutableList<Task> = mutableListOf()) : RecyclerView.Adapter<TaskAdapter.TaskViewHolder>() {
 
     class TaskViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val titleTextView: TextView = itemView.findViewById(R.id.textTaskTitle)
         val descriptionTextView: TextView = itemView.findViewById(R.id.textTaskDescription)
         val statusTextView: TextView = itemView.findViewById(R.id.textTaskStatus)
+    }
+
+    fun updateTasks(newTasks: List<Task>) {
+        tasks.clear()
+        tasks.addAll(newTasks)
+        notifyDataSetChanged()
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TaskViewHolder {
@@ -24,7 +30,12 @@ class TaskAdapter(private val tasks: List<Task>) : RecyclerView.Adapter<TaskAdap
     override fun onBindViewHolder(holder: TaskViewHolder, position: Int) {
         val task = tasks[position]
         holder.titleTextView.text = task.title
-        holder.descriptionTextView.text = task.description
+        if (task.description.isBlank()) {
+            holder.descriptionTextView.visibility = View.GONE
+        } else {
+            holder.descriptionTextView.visibility = View.VISIBLE
+            holder.descriptionTextView.text = task.description
+        }
         if (task.isCompleted) {
             holder.statusTextView.text = "Completed"
             holder.statusTextView.setTextColor(holder.itemView.context.getColor(android.R.color.holo_green_dark))

@@ -1,85 +1,47 @@
 sequenceDiagram
-    participant V as View
+    participant V as View (Activity)
     participant VM as TaskViewModel
     participant R as TaskRepository
-    participant API as REST API
-    participant DAO as TaskDao
-    participant DB as Room
+    participant API as REST API (GET /todos)
 
-    Note over V,DB: Initial load with empty cache
-    V->>VM: Load tasks
-    VM->>R: Observe tasks and refresh
-    R->>DAO: Observe Room Flow
-    DAO->>DB: Query cached tasks
-    DB-->>DAO: Empty list
-    DAO-->>R: Empty cache emission
-    R-->>VM: Initial fetch still pending
-    VM-->>V: InitialLoading do not show Empty
-    R->>API: Fetch tasks
-    alt Successful response contains tasks
-        API-->>R: Success with task list
-        R->>DAO: Save mapped tasks
-        DAO->>DB: Persist tasks
-        DB-->>DAO: Updated rows
-        DAO-->>R: Room Flow emits tasks
-        R-->>VM: Tasks from Room
-        VM-->>V: Success tasks
-    else Successful response is empty
-        API-->>R: Success with empty list
-        R->>DAO: Synchronize successful empty result
-        DAO->>DB: Apply successful empty result to cached task set
-        DB-->>DAO: No task rows
-        DAO-->>R: Room Flow emits empty list
-        R-->>VM: Empty after fetch completion
-        VM-->>V: Empty
-    else Refresh fails
-        API-->>R: Transport timeout HTTP or parsing failure
-        R-->>VM: Initial fetch failure with empty cache gives Error, later refresh failure retains cached tasks and displays warning
-        VM-->>V: Error (when cache is empty) or existing Success with warning (when cached tasks exist)
-    end
-
-    Note over V,DB: Create task server first
-    V->>VM: Submit task
-    VM->>R: Create task
-    alt Offline
-        R-->>VM: Reject operation no API call and no Room write
-        VM-->>V: Offline operation error
-    else Online
-        R->>API: Create task
-        alt API success
-            API-->>R: Created task response
-            R->>DAO: Save mapped task only after success
-            DAO->>DB: Persist task
-            DB-->>DAO: Updated rows
-            DAO-->>R: Room Flow emits tasks
-            R-->>VM: Operation success
-            VM-->>V: Updated Room-backed list
-        else API HTTP or parsing failure
-            API-->>R: Failure
-            R-->>VM: Error and no Room write
-            VM-->>V: Show error and keep cached list unchanged
+    Note over V,API: Initial fetch & state flow
+    V->>VM: fetchTasks(isRefresh = false)
+    VM->>V: emit Loading state
+    VM->>R: getTasks()
+    R->>API: GET /todos
+    alt Successful response with tasks
+        API-->>R: 200 OK with TodoDto list
+        R-->>VM: Result.Success(tasks)
+        VM-->>V: emit Success(tasks)
+    else Successful response with empty list
+        API-->>R: 200 OK with empty list []
+        R-->>VM: Result.Success(emptyList)
+        VM-->>V: emit Empty state
+    else Request or Network Failure
+        API-->>R: IOException / HttpException / Parsing error
+        R-->>VM: Result.Error(exception)
+        alt Cached tasks exist in memory
+            VM-->>V: emit Success(cachedTasks, errorMessage)
+        else No cached tasks exist
+            VM-->>V: emit Error(message)
         end
     end
 
-    Note over V,DB: Completion toggle server first using PATCH
-    V->>VM: Toggle completion
-    VM->>R: Update completion
-    alt Offline
-        R-->>VM: Reject operation no API call and no Room write
-        VM-->>V: Offline operation error
-    else Online
-        R->>API: PATCH completion
-        alt API success
-            API-->>R: Updated task response
-            R->>DAO: Save mapped task only after success
-            DAO->>DB: Persist updated task
-            DB-->>DAO: Updated rows
-            DAO-->>R: Room Flow emits updated tasks
-            R-->>VM: Operation success
-            VM-->>V: Updated Room-backed list
-        else API HTTP or parsing failure
-            API-->>R: Failure
-            R-->>VM: Error and no Room write
-            VM-->>V: Show error and keep cached completion unchanged
-        end
+    Note over V,API: Refresh flow
+    V->>VM: fetchTasks(isRefresh = true)
+    alt Cached tasks exist
+        VM-->>V: emit Success(cachedTasks, isRefreshing = true)
+    else No cached tasks
+        VM-->>V: emit Loading state
+    end
+    VM->>R: getTasks()
+    R->>API: GET /todos
+    alt Refresh success
+        API-->>R: 200 OK with updated tasks
+        R-->>VM: Result.Success(tasks)
+        VM-->>V: emit Success(tasks)
+    else Refresh failure
+        API-->>R: Network/Server/Parsing error
+        R-->>VM: Result.Error(exception)
+        VM-->>V: emit Success(cachedTasks, errorMessage)
     end

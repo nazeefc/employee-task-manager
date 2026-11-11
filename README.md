@@ -1,6 +1,14 @@
 # Employee Task Manager (`employeetaskmanager`)
 
-Employee Task Manager is an Android application developed as part of the Android Developer Bootcamp. The app enables employees to view tasks, add tasks, mark tasks complete, and see their status.
+Employee Task Manager is an Android application developed as part of the Android Developer Bootcamp. The current Day 3 implementation provides a **read-only task dashboard** that fetches tasks via the public JSONPlaceholder GET API (`GET https://jsonplaceholder.typicode.com/todos`).
+
+## Features
+- **Task List Dashboard:** Displays tasks retrieved from the remote REST API in a RecyclerView.
+- **Task Information:** Shows task title, generated description (displaying Task ID and User ID), and completion status (Pending / Completed).
+- **Refresh Functionality:** A Refresh button fetches the latest task data from the API with temporary in-memory state retention and error handling.
+- **UI States:** Handles Loading, Success, Empty, Internet Error, Server Error, API/Request Error, and Invalid Response Error states.
+
+Note: Task creation (adding tasks) and completion editing (marking tasks complete/incomplete) are not implemented in the current read-only GET scope.
 
 ## Requirements
 
@@ -8,20 +16,12 @@ Employee Task Manager is an Android application developed as part of the Android
 - Android SDK Platform 35 and Android SDK Platform Tools
 - An Android emulator or a physical Android device with USB debugging enabled
 
-The app supports Android 7.0 (API 24) and newer. It uses Java 11 compatibility and includes the Gradle wrapper, so a separate JDK or Gradle installation is not needed. Gradle sync requires an internet connection to download the Android Gradle Plugin and dependencies.
-
-## Documentation & Setup Notes
-
-- Day 1 environment setup and troubleshooting details are documented in `docs/day1/SETUP_ISSUES.md` and screenshots in `docs/day1/screenshots/`.
-
-## Get the project
-
-Open the existing project folder directly in Android Studio via **File → Open**.
+The app supports Android 7.0 (API 24) and newer. It uses Java 11 compatibility and includes the Gradle wrapper. Setup notes and historical Day 1 documentation are available in `docs/day1/SETUP_ISSUES.md`.
 
 ## Sync and run
 
 1. In Android Studio, choose **File → Open** and select the project root.
-2. Allow Gradle sync to complete. If prompted, install Android SDK Platform 35.
+2. Allow Gradle sync to complete.
 3. Start an emulator from Device Manager, or connect a phone with USB debugging enabled.
 4. Select the `app` run configuration and click **Run**.
 
@@ -30,11 +30,3 @@ To build and install from PowerShell at the project root:
 ```powershell
 .\gradlew.bat :app:installDebug
 ```
-
-To launch the installed app from the terminal:
-
-```powershell
-adb shell am start -n com.example.employee_task_manager/.EmployeeTaskManagerActivity
-```
-
-If `adb devices` shows no device, start the emulator or check the phone's USB debugging authorization.

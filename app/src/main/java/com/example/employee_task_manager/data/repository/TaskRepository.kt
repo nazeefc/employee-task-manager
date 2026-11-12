@@ -16,9 +16,12 @@ class TaskRepository(private val apiService: TodoApiService) {
         return try {
             val dtos = apiService.getTodos()
             val tasks = dtos.map { dto ->
+                @Suppress("UNNECESSARY_SAFE_CALL")
+                val title = dto.title?.takeIf { it.isNotBlank() }
+                    ?: throw IllegalArgumentException("Task title is required but missing or empty.")
                 Task(
                     id = dto.id,
-                    title = dto.title,
+                    title = title,
                     description = "Task ID: ${dto.id} • User ID: ${dto.userId}",
                     isCompleted = dto.completed
                 )

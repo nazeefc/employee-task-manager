@@ -1,0 +1,32 @@
+========================================
+DAY 8 DEBUGGING LOGCAT EVIDENCE
+========================================
+App ID: com.example.employee_task_manager
+Device: emulator-5554 / Xiaomi Physical Device
+
+1. Malformed JSON Scenario:
+   - Request: GET /todos
+   - Response: 200 OK with body "{ \"invalid\": json }"
+   - Observed Exception: com.google.gson.JsonSyntaxException: Expected BEGIN_ARRAY but was BEGIN_OBJECT at line 1 column 2 path $
+   - UI State: TaskUiState.Error("Invalid Response Error: Expected BEGIN_ARRAY...")
+
+2. Missing Title / Null Title Scenario:
+   - Request: GET /todos
+   - Response: 200 OK with body "[{\"userId\": 1, \"id\": 1, \"completed\": false}]"
+   - Root Cause: Gson reflection set dto.title = null, bypassing Kotlin non-null property check.
+   - Fix Applied: Added explicit validation in TaskRepository.kt:
+     val title = dto.title?.takeIf { it.isNotBlank() }
+         ?: throw IllegalArgumentException("Task title is required but missing or empty.")
+   - UI State After Fix: TaskUiState.Error("Invalid Response Error: Task title is required but missing or empty.")
+
+3. HTTP 500 Server Error Scenario:
+   - Response: 500 Internal Server Error
+   - UI State: TaskUiState.Error("Server Error (500): Unsuccessful server response.")
+
+4. Request Timeout Scenario:
+   - Exception: java.net.SocketTimeoutException: Simulated request timeout
+   - UI State: TaskUiState.Error("Internet Error: Network connectivity unavailable or request timed out.")
+
+5. UI Refresh Scenario:
+   - Action: Tapped REFRESH TASKS button
+   - Result: StateFlow emitted Success(tasks, isRefreshing = true) -> fetched updated task list -> emitted Success(tasks, isRefreshing = false) -> RecyclerView updated successfully.

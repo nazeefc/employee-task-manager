@@ -61,3 +61,11 @@
   - Refresh State & RecyclerView Update Evidence: `docs/week2/day8/screenshots/D3_Refresh_After.png`
   - Live Success API Evidence: `docs/week2/day8/screenshots/D4_Live_App_Success.png`
 - **Status:** Investigated existing refresh/update flow; no production code defect established.
+
+---
+
+## Day 9 Test & Deliver Verification Sign-Off
+- **Test Sign-Off:** Fresh Day 9 execution of `.\gradlew.bat :app:testDebugUnitTest` completed successfully (BUILD SUCCESSFUL in 18 seconds; 17 tests: 0 failures, 0 errors, 0 skipped). Available JUnit XML reports are located in `app/build/test-results/testDebugUnitTest/`; their recorded timestamps are November 12, 2026, so do not describe them as freshly generated on Day 9.
+- **Build Sign-Off:** `.\gradlew.bat assembleDebug` executed successfully (BUILD SUCCESSFUL in 6 seconds; Debug APK generated at `app/build/outputs/apk/debug/app-debug.apk`).
+- **Device Sign-Off:** App successfully launched on Android Studio Emulator and a physical Android mobile device. Loading and Success states were observed during execution. Empty and Error state evidence was documented during Day 8 in `docs/week2/day8/screenshots/`.
+- **Codex Verdict:** APPROVE.

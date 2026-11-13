@@ -41,3 +41,58 @@ The current implementation is limited to fetching tasks through the JSONPlacehol
 - **AC-05 (Internet Error):** Show an appropriate message when the network is unavailable or request fails due to connectivity (`IOException`).
 - **AC-06 (Invalid Response Error):** Show an appropriate message for JSON parsing or conversion failures.
 - **AC-07 (Refresh Failure):** Keep previously loaded tasks temporarily visible in memory if a refresh request fails, and show the error message separately.
+
+---
+
+## 4. API Contract
+
+### 1. API Details
+- **Provider:** JSONPlaceholder
+- **Base URL:** `https://jsonplaceholder.typicode.com/`
+- **HTTP Method:** `GET`
+- **Endpoint:** `/todos`
+- **Full URL:** `https://jsonplaceholder.typicode.com/todos`
+- **Authentication:** None required.
+
+### 2. Response Structure
+- The API returns a JSON array containing todo item objects.
+- Each item in the array contains:
+  - `userId`: Integer
+  - `id`: Integer
+  - `title`: String
+  - `completed`: Boolean
+- **Illustrative JSON Response Example:**
+  ```json
+  [
+    {
+      "userId": 1,
+      "id": 1,
+      "title": "delectus aut autem",
+      "completed": false
+    },
+    {
+      "userId": 1,
+      "id": 2,
+      "title": "quis ut nam facilis et officia qui",
+      "completed": false
+    }
+  ]
+  ```
+
+### 3. DTO to Domain Model Mapping
+- **`TodoDto` to `Task` Mapping (`TaskRepository.kt`):**
+  - `dto.id` → `Task.id`
+  - `dto.title` → `Task.title` (subject to runtime validation)
+  - `dto.completed` → `Task.isCompleted`
+  - `dto.userId` and `dto.id` are combined to generate the task description: `"Task ID: ${dto.id} • User ID: ${dto.userId}"`.
+- **Title Validation & Error Resilience:**
+  - `TaskRepository` validates `dto.title` to ensure it is present, non-null, and non-blank (`dto.title?.takeIf { it.isNotBlank() } ?: throw IllegalArgumentException(...)`).
+  - Missing, explicit `null`, or blank/whitespace-only titles throw an `IllegalArgumentException`, which is caught and mapped by the repository as `Result.Error`, presenting an `Invalid Response Error` on the UI.
+
+### 4. API Response and Error Handling
+- **Successful Response:** Returns `Result.Success(tasks)` which populates the RecyclerView and transitions state to `TaskUiState.Success`.
+- **Successful Empty Response (`[]`):** Returns an empty list, transitioning state to `TaskUiState.Empty` (`"No tasks found"`).
+- **HTTP 4xx Errors:** Client-side request failures (`code in 400..499`) are caught as `HttpException` and classified as `API/Request Error (4xx)`.
+- **HTTP 5xx Errors:** Server-side failures (`code in 500..599`) are caught as `HttpException` and classified as `Server Error (5xx)`.
+- **Network Failures & Timeouts:** Connectivity issues and read/connect timeouts (`IOException`, `SocketTimeoutException`) are caught and classified as `Internet Error: Network connectivity unavailable or request timed out.`
+- **Malformed JSON / Invalid Responses:** GSON parser exceptions (`JsonSyntaxException`) and validation exceptions are caught and classified as `Invalid Response Error`.

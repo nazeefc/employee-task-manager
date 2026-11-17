@@ -1,16 +1,15 @@
-# Current Status: Employee Task Manager (Week 3 Day 10 Complete)
+# Current Status: Employee Task Manager (Week 3 Day 11 Complete)
 
-## Week 3 Day 10 Status Summary
-- **Day 10 Scope:** Offline Room Database v2 integration with Repository, ViewModel error handling/cancellation safety, migration testing, UI details/status toggling, and user verification.
+## Week 3 Day 11 Status Summary
+- **Day 11 Scope:** Reliable background synchronization using WorkManager, CoroutineWorker, Retrofit sync API, MockWebServer testing, and sync state transitions (`PENDING` → `SYNCING` → `SYNCED`).
 - **Status Breakdown:**
   - **COMPLETED:**
-    - Week 2 GET API integration and unit tests (17/17 passing).
-    - Room database version 2 (`TaskEntity` with description and priority, `TaskDao`, `AppDatabase` with `MIGRATION_1_2`).
-    - `RoomTaskRepository` with proper `CancellationException` handling and `RoomTaskViewModel` with upstream `.catch` error handling.
-    - JUnit unit tests (`25/25 passing`).
-    - Android instrumented migration test (`AppDatabaseMigrationTest`) and DAO instrumented tests (`TaskDaoTest`).
-    - User-reported physical device manual verification (Airplane mode task creation, offline viewing, force-stop, and relaunch persistence).
+    - WorkManager integration (`androidx.work:work-runtime-ktx`) with `CONNECTED` network constraint and exponential backoff retry policy.
+    - `TaskSyncWorker` implementing coroutine-based task upload, idempotency via stable `clientId` (UUID v4), and startup recovery of stuck `SYNCING` tasks.
+    - `RoomTaskRepository` scheduling background sync work upon offline task creation.
+    - Automated unit tests (`25/25 passing`) and MockWebServer instrumented tests (`TaskSyncWorkerTest`).
+    - Offline sync architecture diagram (`docs/diagrams/offline-sync.mmd`).
   - **NOT STARTED:**
-    - WorkManager background synchronization (Day 11 scope).
+    - Day 12 concurrency exercises or Day 13 debugging lab.
 - **Git Status:**
   - Current branch is `feature/offline-room`.

@@ -1,8 +1,7 @@
-# Architecture: Employee Task Manager (Week 3 Day 10 Codex Corrections Complete)
+# Architecture: Employee Task Manager (Week 3 Day 11 Complete)
 
-## 1. Current Architecture (Week 3 Offline-First)
-- **Activity:** `EmployeeTaskManagerActivity.kt` observes `RoomTaskViewModel` state via lifecycle-safe coroutine collection, hosting a RecyclerView backed by `TaskAdapter`.
-- **Data Model:** `data/local/TaskEntity.kt` (`id` Int primary key, `clientId` unique String UUID v4, `title`, `description`, `priority`, `completed`, `updatedAt`, `syncState`) and domain `data/Task.kt`.
-- **Database & DAO:** `AppDatabase` (SQLite Room DB version 2 with `MIGRATION_1_2`) and `TaskDao`.
-- **Repository (`RoomTaskRepository`):** Coordinates between local Room DAO and domain model mapping, handling offline task creation and status updates with robust `CancellationException` handling.
-- **ViewModel (`RoomTaskViewModel`):** Exposes reactive UI state (`RoomTaskUiState`) observing Room database flows with upstream `.catch` error handling.
+## 1. Offline-First Synchronization Architecture
+- **Room Database (v2):** Acts as the local single source of truth for task creation, viewing, and state tracking (`syncState`: 0 = PENDING, 1 = SYNCING, 2 = SYNCED).
+- **WorkManager (`TaskSyncWorker`):** Background task worker executing under `NetworkType.CONNECTED` constraints with exponential backoff.
+- **Repository (`RoomTaskRepository`):** Coordinates local Room DAO persistence and automatically enqueues WorkManager background synchronization when new tasks are created.
+- **Network / Remote (`TaskSyncApiService`):** Retrofit POST service sending idempotent task payloads identified by stable `clientId`.

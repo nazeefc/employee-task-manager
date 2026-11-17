@@ -165,4 +165,23 @@ class FakeTaskDao : TaskDao {
     override suspend fun getTaskById(taskId: Int): TaskEntity? = insertedTasks.firstOrNull { it.id == taskId }
 
     override suspend fun deleteTask(taskId: Int) {}
+
+    override suspend fun getPendingTasks(): List<TaskEntity> = insertedTasks.filter { it.syncState == 0 }
+
+    override suspend fun updateSyncState(taskId: Int, syncState: Int) {
+        insertedTasks.firstOrNull { it.id == taskId }?.let { task ->
+            val idx = insertedTasks.indexOf(task)
+            if (idx >= 0) {
+                insertedTasks[idx] = task.copy(syncState = syncState)
+            }
+        }
+    }
+
+    override suspend fun resetSyncingTasksToPending() {
+        insertedTasks.forEachIndexed { idx, task ->
+            if (task.syncState == 1) {
+                insertedTasks[idx] = task.copy(syncState = 0)
+            }
+        }
+    }
 }

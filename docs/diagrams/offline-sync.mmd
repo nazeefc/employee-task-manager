@@ -1,0 +1,31 @@
+sequenceDiagram
+    participant UI as UI (Activity)
+    participant VM as RoomTaskViewModel
+    participant Repo as RoomTaskRepository
+    participant DAO as TaskDao (Room DB)
+    participant WM as WorkManager
+    participant Worker as TaskSyncWorker
+    participant Server as MockWebServer (Test API)
+
+    UI->>VM: createTask(title, description, priority)
+    VM->>Repo: createTask(...)
+    Repo->>DAO: insertTask(entity: PENDING, clientId: UUID)
+    DAO-->>Repo: Insert Success
+    Repo->>WM: Enqueue Unique Sync Work (CONNECTED constraint)
+    WM-->>Worker: Trigger when internet available
+    Worker->>DAO: Get PENDING tasks
+    DAO-->>Worker: List<TaskEntity>
+    Worker->>DAO: Mark tasks SYNCING
+    Worker->>Server: POST /tasks (clientId, title, priority, etc.)
+    alt Success (2xx)
+        Server-->>Worker: 200 OK / Created
+        Worker->>DAO: Mark tasks SYNCED
+        DAO-->>UI: Room Flow emits updated list (UI shows SYNCED / updated status)
+    else Temporary Failure (5xx / Timeout)
+        Server-->>Worker: 500 Server Error / Timeout
+        Worker->>DAO: Reset tasks PENDING
+        Note over Worker,Server: WorkManager retries with exponential backoff
+    else Permanent Failure (4xx)
+        Server-->>Worker: 400 Bad Request
+        Worker->>DAO: Handle error / prevent infinite retry
+    end

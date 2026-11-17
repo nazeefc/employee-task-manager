@@ -65,7 +65,14 @@
 ---
 
 ## Day 9 Test & Deliver Verification Sign-Off
-- **Test Sign-Off:** Fresh Day 9 execution of `.\gradlew.bat :app:testDebugUnitTest` completed successfully (BUILD SUCCESSFUL in 18 seconds; 17 tests: 0 failures, 0 errors, 0 skipped). Available JUnit XML reports are located in `app/build/test-results/testDebugUnitTest/`; their recorded timestamps are November 12, 2026, so do not describe them as freshly generated on Day 9.
-- **Build Sign-Off:** `.\gradlew.bat assembleDebug` executed successfully (BUILD SUCCESSFUL in 6 seconds; Debug APK generated at `app/build/outputs/apk/debug/app-debug.apk`).
+- **Test Sign-Off:** Fresh Day 9 execution of `.\\gradlew.bat :app:testDebugUnitTest` completed successfully (BUILD SUCCESSFUL in 18 seconds; 17 tests: 0 failures, 0 errors, 0 skipped). Available JUnit XML reports are located in `app/build/test-results/testDebugUnitTest/`; their recorded timestamps are November 12, 2026, so do not describe them as freshly generated on Day 9.
+- **Build Sign-Off:** `.\\gradlew.bat assembleDebug` executed successfully (BUILD SUCCESSFUL in 6 seconds; Debug APK generated at `app/build/outputs/apk/debug/app-debug.apk`).
 - **Device Sign-Off:** App successfully launched on Android Studio Emulator and a physical Android mobile device. Loading and Success states were observed during execution. Empty and Error state evidence was documented during Day 8 in `docs/week2/day8/screenshots/`.
 - **Codex Verdict:** APPROVE.
+
+## Week 3 Day 11 — WorkManager Offline-to-Online Synchronization
+- Debug builds use the laptop mock server at `http://127.0.0.1:8080/` through the user's USB reverse setup. The release variant has no configured sync backend; when its sync URL is empty, the worker fails without changing tasks from PENDING or marking them SYNCED.
+- **User-reported manual verification:** Offline task creation, Room retention after Force Stop/restart, synchronization after internet restoration, laptop server receipt, distinct client IDs, and repeat POST not increasing server task count were reported PASS by the user. These do not establish timeout-after-save behavior.
+- **Build verification:** `:app:assembleDebug` and `:app:assembleDebugAndroidTest` completed successfully during this correction pass.
+- **Instrumentation status:** The worker test APK installation on phone `a77e9f7c1122` was blocked by Android with `INSTALL_FAILED_USER_RESTRICTED: Install canceled by user`. `TaskSyncWorkerTest` was not executed in this pass.
+- **Device handling:** Existing app was updated in place with `adb install -r`; it was not uninstalled and app data was not cleared.

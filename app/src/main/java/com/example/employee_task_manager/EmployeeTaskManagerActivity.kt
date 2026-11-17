@@ -72,7 +72,7 @@ class EmployeeTaskManagerActivity : AppCompatActivity() {
 
         // Setup Room Database, Repository, and ViewModel
         val database = AppDatabase.getDatabase(this)
-        val roomRepository = RoomTaskRepository(database.taskDao())
+        val roomRepository = RoomTaskRepository(database.taskDao(), applicationContext)
 
         roomViewModel = ViewModelProvider(this, object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {

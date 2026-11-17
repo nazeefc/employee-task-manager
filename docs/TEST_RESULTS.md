@@ -7,7 +7,7 @@ This document records the official Week 3 Day 10 test verification results, fres
 ---
 
 ## 1. Unit Tests (`:app:testDebugUnitTest`)
-- **Execution Command:** `.\gradlew.bat :app:testDebugUnitTest`
+- **Execution Command:** `.\\gradlew.bat :app:testDebugUnitTest`
 - **Execution Result:** **BUILD SUCCESSFUL** (fresh console execution with **25 total tests passing**: 0 failures, 0 errors, 0 skipped).
 - **Test Suite Inventory & Counts:**
   - `TaskViewModelTest.kt`: **16** passed.
@@ -19,7 +19,7 @@ This document records the official Week 3 Day 10 test verification results, fres
 ---
 
 ## 2. Room Instrumented & Migration Tests (`:app:connectedDebugAndroidTest`)
-- **Execution Command:** `.\gradlew.bat :app:connectedDebugAndroidTest --rerun-tasks --console=plain`
+- **Execution Command:** `.\\gradlew.bat :app:connectedDebugAndroidTest --rerun-tasks --console=plain`
 - **Execution Result:** **NOT VERIFIED**.
 - **Blocker:** Encountered `com.android.ddmlib.TimeoutException` during adb device communication and instrumented test execution.
 - **Test Suites (Compiled & Structured):**
@@ -29,7 +29,7 @@ This document records the official Week 3 Day 10 test verification results, fres
 ---
 
 ## 3. Debug APK Build (`assembleDebug`)
-- **Execution Command:** `.\gradlew.bat assembleDebug`
+- **Execution Command:** `.\\gradlew.bat assembleDebug`
 - **Execution Result:** **BUILD SUCCESSFUL**.
 - **Generated APK Artifact Path:** `app/build/outputs/apk/debug/app-debug.apk`
 
@@ -50,3 +50,11 @@ This document records the official Week 3 Day 10 test verification results, fres
 - **Instrumented Tests:** Marked **NOT VERIFIED** due to ADB connection timeout (`TimeoutException`).
 - **APK Build:** Successful (`app-debug.apk` generated).
 - **User-Reported Device Verification:** Completed successfully on physical device (offline/airplane mode, task creation, force-stop, relaunch).
+
+---
+
+## Week 3 Day 11 — WorkManager Sync Verification
+- **Code/build tasks:** `:app:assembleDebug` and `:app:assembleDebugAndroidTest` built successfully during this pass.
+- **Worker instrumentation:** Not executed. Installation of the test APK on physical device `a77e9f7c1122` failed with `INSTALL_FAILED_USER_RESTRICTED: Install canceled by user`. The existing connected report contains no `TaskSyncWorkerTest` results.
+- **Prior manual verification (user-reported):** Offline create, persistence after force-stop/relaunch, sync after reconnect, server receipt, and clientId duplicate prevention were reported PASS; not re-run in this pass.
+- **Timeout-after-save scenario:** The corrected test source covers server-save then dropped response, same-ID retry, one stored record, and local SYNCED state; execution is still pending.

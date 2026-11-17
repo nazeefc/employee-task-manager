@@ -1,27 +1,16 @@
-# Current Status: Employee Task Manager (Day 9 Test & Deliver)
+# Current Status: Employee Task Manager (Week 3 Day 10 Complete)
 
-## Week 2 Day 9 Release Summary
-- **Day 9 Scope:**
-  - Day 9 test execution completed.
-  - Debug APK build verification completed.
-  - Emulator and physical Android device launch verification completed.
-  - Independent Codex review completed.
-  - Day 9 documentation audit completed.
-  - Final submission evidence and GitHub Pull Request verification are ongoing.
-- **Verified Unit Test Execution Results:**
-  - Fresh Day 9 Gradle console execution: `.\gradlew.bat :app:testDebugUnitTest` → **BUILD SUCCESSFUL** in 18s (17 total unit tests passing: 16 in `TaskViewModelTest.kt`, 1 in `ExampleUnitTest.kt`, with 0 failures, 0 errors, 0 skipped).
-  - JUnit XML Reports Directory: `app/build/test-results/testDebugUnitTest/` (containing available JUnit XML test reports with recorded timestamps from November 12, 2026).
-- **Verified Build Results:**
-  - Command: `.\gradlew.bat assembleDebug` → **BUILD SUCCESSFUL in 6s.**
-  - Debug APK Path: `app/build/outputs/apk/debug/app-debug.apk`.
-- **Manual Device Verification:**
-  - Successfully launched in Android Studio Emulator.
-  - Successfully installed and launched on a physical Android mobile device.
-  - Loading and Success states verified during live app execution.
-- **Codex Independent Review Verdict:** **APPROVE**.
+## Week 3 Day 10 Status Summary
+- **Day 10 Scope:** Offline Room Database v2 integration with Repository, ViewModel error handling/cancellation safety, migration testing, UI details/status toggling, and user verification.
+- **Status Breakdown:**
+  - **COMPLETED:**
+    - Week 2 GET API integration and unit tests (17/17 passing).
+    - Room database version 2 (`TaskEntity` with description and priority, `TaskDao`, `AppDatabase` with `MIGRATION_1_2`).
+    - `RoomTaskRepository` with proper `CancellationException` handling and `RoomTaskViewModel` with upstream `.catch` error handling.
+    - JUnit unit tests (`25/25 passing`).
+    - Android instrumented migration test (`AppDatabaseMigrationTest`) and DAO instrumented tests (`TaskDaoTest`).
+    - User-reported physical device manual verification (Airplane mode task creation, offline viewing, force-stop, and relaunch persistence).
+  - **NOT STARTED:**
+    - WorkManager background synchronization (Day 11 scope).
 - **Git Status:**
-  - Current branch is `feature/api-task-list`.
-  - Day 9 documentation commit `566cffb` was successfully pushed to `origin/feature/api-task-list`.
-  - Follow-up submission documentation updates are currently being reviewed.
-  - GitHub Pull Request status has not yet been verified.
-  - Current working-tree status should be checked using `git status --short --branch`.
+  - Current branch is `feature/offline-room`.

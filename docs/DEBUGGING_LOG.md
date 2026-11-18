@@ -65,8 +65,8 @@
 ---
 
 ## Day 9 Test & Deliver Verification Sign-Off
-- **Test Sign-Off:** Fresh Day 9 execution of `.\\gradlew.bat :app:testDebugUnitTest` completed successfully (BUILD SUCCESSFUL in 18 seconds; 17 tests: 0 failures, 0 errors, 0 skipped). Available JUnit XML reports are located in `app/build/test-results/testDebugUnitTest/`; their recorded timestamps are November 12, 2026, so do not describe them as freshly generated on Day 9.
-- **Build Sign-Off:** `.\\gradlew.bat assembleDebug` executed successfully (BUILD SUCCESSFUL in 6 seconds; Debug APK generated at `app/build/outputs/apk/debug/app-debug.apk`).
+- **Test Sign-Off:** Fresh Day 9 execution of `.\gradlew.bat :app:testDebugUnitTest` completed successfully (BUILD SUCCESSFUL in 18 seconds; 17 tests: 0 failures, 0 errors, 0 skipped). Available JUnit XML reports are located in `app/build/test-results/testDebugUnitTest/`; their recorded timestamps are November 12, 2026, so do not describe them as freshly generated on Day 9.
+- **Build Sign-Off:** `.\gradlew.bat assembleDebug` executed successfully (BUILD SUCCESSFUL in 6 seconds; Debug APK generated at `app/build/outputs/apk/debug/app-debug.apk`).
 - **Device Sign-Off:** App successfully launched on Android Studio Emulator and a physical Android mobile device. Loading and Success states were observed during execution. Empty and Error state evidence was documented during Day 8 in `docs/week2/day8/screenshots/`.
 - **Codex Verdict:** APPROVE.
 
@@ -76,3 +76,15 @@
 - **Build verification:** `:app:assembleDebug` and `:app:assembleDebugAndroidTest` completed successfully during this correction pass.
 - **Instrumentation status:** The worker test APK installation on phone `a77e9f7c1122` was blocked by Android with `INSTALL_FAILED_USER_RESTRICTED: Install canceled by user`. `TaskSyncWorkerTest` was not executed in this pass.
 - **Device handling:** Existing app was updated in place with `adb install -r`; it was not uninstalled and app data was not cleared.
+
+---
+
+## Week 3 Day 12 Debugging & Verification Log
+
+### **1. Duplicate Launcher Configuration (Implementation Mistake & Correction)**
+- **Issue:** Adding `DebugApiTestActivity` with its own launcher intent filter in `app/src/debug/AndroidManifest.xml` created a second app icon in the device launcher.
+- **Correction:** Removed the secondary launcher intent filter and restructured `DebugApiTestActivity` as an in-app navigation screen accessible via a button in `EmployeeTaskManagerActivity`, restoring a single launcher icon (`EmployeeTaskManagerActivity`).
+
+### **2. Debug Source Set Deletion (Implementation Mistake & Correction)**
+- **Issue:** `app/src/debug/` files were inadvertently removed during restructuring.
+- **Correction:** Restored `LocalMockTaskServer.kt` from HEAD baseline and recreated debug cleartext HTTP manifest overlay (`app/src/debug/AndroidManifest.xml`).

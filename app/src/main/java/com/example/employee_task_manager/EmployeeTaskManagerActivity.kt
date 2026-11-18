@@ -24,6 +24,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.employee_task_manager.data.Task
 import com.example.employee_task_manager.data.local.AppDatabase
 import com.example.employee_task_manager.data.repository.RoomTaskRepository
+import com.example.employee_task_manager.ui.DebugApiTestActivity
 import com.example.employee_task_manager.ui.RoomTaskUiState
 import com.example.employee_task_manager.ui.RoomTaskViewModel
 import com.example.employee_task_manager.ui.TaskAdapter
@@ -89,6 +90,11 @@ class EmployeeTaskManagerActivity : AppCompatActivity() {
             Toast.makeText(this, "Task list is up to date (Local Room Database)", Toast.LENGTH_SHORT).show()
         }
 
+        val switchNavButton = findViewById<Button>(R.id.buttonSwitchNav)
+        switchNavButton.setOnClickListener {
+            startActivity(android.content.Intent(this, DebugApiTestActivity::class.java))
+        }
+
         // Collect UI state lifecycle-safely from Room Database Flow
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -128,21 +134,41 @@ class EmployeeTaskManagerActivity : AppCompatActivity() {
     }
 
     private fun showCreateTaskDialog(viewModel: RoomTaskViewModel) {
+        val density = resources.displayMetrics.density
+        val padding = (24 * density).toInt()
+        val spacing = (12 * density).toInt()
+
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(48, 32, 48, 32)
+            setPadding(padding, padding, padding, padding)
         }
 
         val titleInput = EditText(this).apply {
             hint = "Task Title (Required)"
+            textSize = 16f
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 0, 0, spacing) }
         }
+
         val descInput = EditText(this).apply {
             hint = "Description (Optional)"
+            textSize = 16f
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 0, 0, spacing) }
         }
 
         val priorityLabel = TextView(this).apply {
             text = "Priority:"
-            setPadding(0, 16, 0, 8)
+            textSize = 14f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 4, 0, 4) }
         }
 
         val prioritySpinner = Spinner(this).apply {
@@ -152,6 +178,10 @@ class EmployeeTaskManagerActivity : AppCompatActivity() {
                 arrayOf("Low", "Medium", "High")
             )
             setSelection(1) // Default to Medium
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 0, 0, spacing) }
         }
 
         container.addView(titleInput)
@@ -180,22 +210,29 @@ class EmployeeTaskManagerActivity : AppCompatActivity() {
     }
 
     private fun showTaskDetailsDialog(task: Task) {
+        val density = resources.displayMetrics.density
+        val padding = (24 * density).toInt()
+
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(48, 32, 48, 32)
+            setPadding(padding, padding, padding, padding)
         }
 
         val titleView = TextView(this).apply {
             text = task.title
             textSize = 20f
             setTypeface(null, android.graphics.Typeface.BOLD)
-            setPadding(0, 0, 0, 16)
+            setPadding(0, 0, 0, (12 * density).toInt())
         }
 
+        val descText = if (task.description.isNotBlank()) task.description else "No description provided."
+        val statusText = if (task.isCompleted) "Completed" else "Pending"
+
         val detailsView = TextView(this).apply {
-            text = "${task.description}\n\nStatus: ${if (task.isCompleted) "Completed" else "Pending"}"
+            text = "Description:\n$descText\n\nStatus: $statusText"
             textSize = 15f
-            setPadding(0, 0, 0, 24)
+            setLineSpacing(4f, 1.2f)
+            setPadding(0, 0, 0, (16 * density).toInt())
         }
 
         container.addView(titleView)

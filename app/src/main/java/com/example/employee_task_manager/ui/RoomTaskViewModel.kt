@@ -22,6 +22,8 @@ sealed interface RoomTaskUiState {
 
 class RoomTaskViewModel(private val repository: RoomTaskRepository) : ViewModel() {
 
+    private val processingTaskIds = mutableSetOf<Int>()
+
     val uiState: StateFlow<RoomTaskUiState> = repository.tasks
         .map<List<Task>, RoomTaskUiState> { tasks ->
             if (tasks.isEmpty()) {
@@ -57,11 +59,21 @@ class RoomTaskViewModel(private val repository: RoomTaskRepository) : ViewModel(
     }
 
     fun toggleTaskCompletion(taskId: Int, onError: (String) -> Unit = {}) {
+        synchronized(processingTaskIds) {
+            if (processingTaskIds.contains(taskId)) return
+            processingTaskIds.add(taskId)
+        }
         viewModelScope.launch {
-            when (val result = repository.toggleTaskCompletion(taskId)) {
-                is Result.Success -> {}
-                is Result.Error -> {
-                    onError(result.exception.localizedMessage ?: "Failed to update task status.")
+            try {
+                when (val result = repository.toggleTaskCompletion(taskId)) {
+                    is Result.Success -> {}
+                    is Result.Error -> {
+                        onError(result.exception.localizedMessage ?: "Failed to update task status.")
+                    }
+                }
+            } finally {
+                synchronized(processingTaskIds) {
+                    processingTaskIds.remove(taskId)
                 }
             }
         }

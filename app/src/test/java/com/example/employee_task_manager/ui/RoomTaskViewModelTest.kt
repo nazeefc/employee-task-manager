@@ -143,6 +143,36 @@ class RoomTaskViewModelTest {
         val result = repository.createTask("Crash Task")
         assertTrue(result is Result.Error)
     }
+
+    @Test
+    fun `rapid completion taps on the same task execute only once while in flight and clear guard`() = runTest {
+        val task = TaskEntity(id = 10, clientId = "uuid-10", title = "Task 10", completed = false)
+        fakeDao.insertTask(task)
+
+        var updateCount = 0
+        val slowDao = object : TaskDao by fakeDao {
+            override suspend fun updateTask(task: TaskEntity) {
+                updateCount++
+                kotlinx.coroutines.delay(1000)
+                fakeDao.updateTask(task)
+            }
+            override suspend fun getTaskById(taskId: Int): TaskEntity? = fakeDao.getTaskById(taskId)
+        }
+        val slowRepo = RoomTaskRepository(slowDao, testDispatcher)
+        val slowVm = RoomTaskViewModel(slowRepo)
+
+        // Tap twice rapidly
+        slowVm.toggleTaskCompletion(10)
+        slowVm.toggleTaskCompletion(10) // should be ignored as in-flight
+
+        advanceUntilIdle()
+        assertEquals(1, updateCount) // exactly one update executed
+
+        // Verify later intentional toggle works after guard clears in finally
+        slowVm.toggleTaskCompletion(10)
+        advanceUntilIdle()
+        assertEquals(2, updateCount)
+    }
 }
 
 class FakeTaskDao : TaskDao {

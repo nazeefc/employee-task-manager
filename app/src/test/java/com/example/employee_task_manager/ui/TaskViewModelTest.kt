@@ -337,6 +337,44 @@ class TaskViewModelTest {
     }
 
     @Test
+    fun `Test B - slow API response delay with virtual time and superseding request prevents stale response overwrite`() = runTest {
+        val suspendingApiService = object : TodoApiService {
+            var callCount = 0
+            override suspend fun getTodos(): List<TodoDto> {
+                callCount++
+                if (callCount == 1) {
+                    // Simulate controlled 5-10 second asynchronous response delay using coroutine virtual time (6000ms = 6s)
+                    kotlinx.coroutines.delay(6000)
+                    return listOf(TodoDto(1, 1, "Delayed Old Task", false))
+                } else {
+                    return listOf(TodoDto(1, 2, "New Up-to-Date Task", true))
+                }
+            }
+        }
+        val repo = TaskRepository(suspendingApiService)
+        val vm = TaskViewModel(repo)
+
+        vm.uiState.test {
+            // 1. Loading state is observable
+            assertEquals(TaskUiState.Loading, awaitItem())
+            testScheduler.runCurrent()
+
+            // 2. Delayed GET operation starts, then a newer request supersedes the older request
+            vm.fetchTasks(isRefresh = true)
+
+            // 3. Advance virtual time past the delay and settle coroutines
+            testScheduler.advanceUntilIdle()
+
+            // 4. Verify Success state contains the expected task data ("New Up-to-Date Task"),
+            // that the older operation was cancelled, and outdated response cannot overwrite newer data.
+            val successState = awaitItem() as TaskUiState.Success
+            assertEquals(1, successState.tasks.size)
+            assertEquals("New Up-to-Date Task", successState.tasks[0].title)
+            assertEquals(true, successState.tasks[0].isCompleted)
+        }
+    }
+
+    @Test
     fun `newer refresh request supersedes older request and prevents race condition`() = runTest {
         val suspendingApiService = object : TodoApiService {
             var callCount = 0

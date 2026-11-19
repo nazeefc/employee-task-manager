@@ -88,3 +88,91 @@
 ### **2. Debug Source Set Deletion (Implementation Mistake & Correction)**
 - **Issue:** `app/src/debug/` files were inadvertently removed during restructuring.
 - **Correction:** Restored `LocalMockTaskServer.kt` from HEAD baseline and recreated debug cleartext HTTP manifest overlay (`app/src/debug/AndroidManifest.xml`).
+
+---
+
+## Week 3 Day 13 Debugging Investigation Log
+
+### 1. Bug A — Duplicate Task After Retry
+- **REPRODUCE:** Attempted controlled reproduction using instrumented test `workerHandlesResponseLossAfterServerSaveAndRetriesIdempotently()` on a physical Xiaomi 22111317I device (Android 14).
+- **OBSERVE:** Test ran successfully on physical Xiaomi 22111317I (Android 14) with result **1/1 PASSED**. The mock server received repeated POST requests using the exact same `clientId`. Controlled test verified only one server-side record remained stored.
+- **ISOLATE:** Isolated worker retry behavior under dropped response conditions after server persistence.
+- **HYPOTHESIZE:** The worker preserves the same `clientId` across retry attempts, and the server prevents duplicate records through unique-key storage using `putIfAbsent(clientId, ...)`. Client-side `clientId` preservation alone does not guarantee idempotency; idempotency relies on both client `clientId` stability and server-side duplicate prevention logic. Note: This hypothesis applies to the tested idempotency implementation; it does not claim that all real-world edge-case retry scenarios are verified.
+- **FIX:** Not required — bug not reproduced.
+- **VERIFY:** Verified via instrumented test `workerHandlesResponseLossAfterServerSaveAndRetriesIdempotently()` passing 1/1 on physical Xiaomi 22111317I.
+
+### 2. Bug B — Queue Stuck in SYNCING
+- **REPRODUCE:** Investigated initial sync failure where background task execution appeared suspended.
+- **OBSERVE:**
+  - Database Inspector initially showed `syncState = 0` (`PENDING`).
+  - Background Task Inspector showed worker status `ENQUEUED` with 5 retries.
+  - Worker details showed run count of 6.
+  - Logcat showed Worker returning `Result.RETRY`.
+  - Network connectivity test `Test-NetConnection 127.0.0.1 -Port 8080` returned `TcpTestSucceeded = False` before starting the mock server.
+  - Initial sync failed because the development mock server was not running on laptop port 8080 and phone-to-host port forwarding (`adb reverse`) had not been configured.
+  - Environment setup performed:
+    - Started existing mock backend using `./gradlew.bat :app:runMockServer`.
+    - Connected physical phone port forwarding using `adb reverse tcp:8080 tcp:8080`.
+  - After setup, live synchronization reached `syncState = 2` (`SYNCED`).
+  - `GET http://127.0.0.1:8080/tasks` confirmed uploaded tasks on the server.
+  - Instrumented recovery test `workerResetsStuckSyncingTasksToPending()` executed on physical Xiaomi 22111317I with result **1/1 PASSED**. The test started with `syncState = 1` (`SYNCING`), executed `doWork()`, and verified worker success (`Result.success`) and final state `syncState = 2` (`SYNCED`). The intermediate `PENDING` reset was executed internally during worker startup reset logic (`taskDao.resetSyncingTasksToPending()`) and was not directly verified by a separate test assertion.
+- **ISOLATE:** The initial setup lacked a running mock server on port 8080 and ADB reverse forwarding, with the worker `ENQUEUED` with retries while tasks remained `PENDING` (0). After starting `LocalMockTaskServer` and configuring `adb reverse`, live sync reached `SYNCED` (2). This strongly supports an environment configuration problem.
+- **HYPOTHESIZE:** The worker returned `Result.RETRY` because network calls to `http://127.0.0.1:8080/` failed due to missing host server and port forwarding, causing WorkManager to re-enqueue retries with `syncState = 0`. However, because the exact original network exception was not captured in logs, a fully proven application-code root cause cannot be claimed.
+- **FIX:** Not required — target SYNCING-stuck bug was not reproduced in application code. Development sync connectivity was resolved through environment setup (`runMockServer` and `adb reverse tcp:8080 tcp:8080`), without a source-code fix.
+- **VERIFY:** Verified via live physical device sync (`syncState = 2` / `SYNCED`), server GET endpoint response (`GET http://127.0.0.1:8080/tasks`), and instrumented test `workerResetsStuckSyncingTasksToPending()` passing 1/1 on physical Xiaomi 22111317I.
+
+### 3. Bug C — Completion Reverses After Rotation
+- **REPRODUCE:** Tested task completion status persistence during screen orientation changes on physical Xiaomi 22111317I.
+- **OBSERVE:**
+  - Marked a task as Completed on Xiaomi device.
+  - Rotated screen orientation from portrait to landscape and back to portrait.
+  - Task remained Completed in the UI.
+  - Database Inspector confirmed `completed = 1` in Room DB.
+  - Mock server later returned record with `title = "task complete rotation test"`, `completed = true`.
+- **ISOLATE:** Tested UI state flow and Room database persistence across screen configuration changes.
+- **HYPOTHESIZE:** Room DB single source of truth paired with StateFlow cleanly retains and restores task completion state across configuration changes.
+- **FIX:** Not required — bug not reproduced in the tested scenario.
+- **VERIFY:** Verified manually on physical Xiaomi 22111317I device, Database Inspector, and mock server JSON payload.
+
+### 4. Other Observations
+- **Test Installation Permission:** The first instrumented test attempt encountered Android `INSTALL_FAILED_USER_RESTRICTED` due to USB installation restrictions on the Xiaomi device. After installation permission was granted on the device, the relevant tests executed and passed.
+- **Mock Server Verification Payload Details:** The mock server recorded two uploaded task records:
+  1. `title = "task complete rotation test"`, `completed = true`
+  2. `title = "verification"`, `completed = false`
+  Both server records contained distinct `clientId` UUIDs.
+
+---
+
+## Actual Codex Agent — Read-Only Root-Cause Investigation
+
+### 1. Bug A — Duplicate Task After Retry Investigation
+- **Findings:**
+  - `TaskSyncWorker` preserves the same `clientId` UUID across retry attempts when network calls fail or drop responses.
+  - Development `LocalMockTaskServer` uses `storedTasks.putIfAbsent(clientId, body)` to enforce unique key storage for incoming POST payloads.
+  - No incorrect state transition or duplicate task generation was demonstrated in controlled testing or code review.
+  - Note: Production backend idempotency behavior remains unverified on live remote endpoints.
+
+### 2. Bug B — Queue Stuck in SYNCING Investigation
+- **Findings:**
+  - `TaskSyncWorker` contains recovery logic upon startup (`taskDao.resetSyncingTasksToPending()`) that resets interrupted `SYNCING` tasks (`syncState = 1`) back to `PENDING` (`syncState = 0`).
+  - Initial observations of `PENDING` state (`syncState = 0`) and worker `Result.RETRY` were consistent with an unavailable server connection.
+  - Background synchronization succeeded (`syncState = 2` / `SYNCED`) after starting `LocalMockTaskServer` and configuring USB port forwarding (`adb reverse tcp:8080 tcp:8080`).
+  - No `SYNCING`-stuck defect was confirmed in application code.
+  - Note: The exact original network exception was not captured in log records.
+
+### 3. Bug C — Completion Reverses After Rotation Investigation
+- **Findings:**
+  - Room database (as single source of truth) paired with ViewModel `StateFlow` retains UI state seamlessly across screen orientation changes.
+  - Task completion status remained `true` in UI, Room DB (`completed = 1`), and mock server upload (`completed = true`) after rotation.
+  - No completion reversal was demonstrated in the tested scenario.
+
+### 4. Separate Follow-Up Risk (Post-Sync Completion Changes)
+- **Observation:** `RoomTaskRepository.toggleTaskCompletion()` updates the local Room database (`updateTask`), but does not enqueue a WorkManager synchronization request.
+- **Risk:** An already-`SYNCED` task (`syncState = 2`) that has its completion status toggled locally might not trigger a new sync request to upload the updated completion state to the remote server.
+- **Clarification:** This is a separate post-sync update limitation, NOT the reported rotation bug.
+- **Action Required:** Requires separate verification and user approval before implementing any code changes.
+
+### 5. Codex Final Recommendations
+- **Source Code Changes:** No source-code modifications required for Bugs A, B, or C.
+- **Regression Tests:** Preserve all existing JVM unit tests and instrumented worker tests.
+- **Future Test Considerations:** Consider adding future test coverage for production backend idempotency, server outage recovery, Activity recreation, and completion state synchronization after initial task upload.

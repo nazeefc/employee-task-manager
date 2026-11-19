@@ -159,48 +159,48 @@ class TaskSyncWorkerTest {
         assertEquals(3, updatedTask.syncState) // 3 = FAILED / PERMANENT_ERROR
     }
 
-    @Test
-    fun workerResetsStuckSyncingTasksToPending() = runBlocking {
-        val task = TaskEntity(
-            clientId = "stuck-client",
-            title = "Stuck Task",
-            syncState = 1 // SYNCING (stuck due to crash)
-        )
-        taskDao.insertTask(task)
+        @Test
+        fun workerResetsStuckSyncingTasksToPending() = runBlocking {
+            val task = TaskEntity(
+                clientId = "stuck-client",
+                title = "Stuck Task",
+                syncState = 1 // SYNCING (stuck due to crash)
+            )
+            taskDao.insertTask(task)
 
-        mockWebServer.enqueue(
-            MockResponse()
-                .setResponseCode(200)
-                .setBody("{\"clientId\":\"stuck-client\",\"status\":\"success\"}")
-        )
+            mockWebServer.enqueue(
+                MockResponse()
+                    .setResponseCode(200)
+                    .setBody("{\"clientId\":\"stuck-client\",\"status\":\"success\"}")
+            )
 
-        val worker = TestListenableWorkerBuilder<TaskSyncWorker>(context)
-            .setWorkerFactory(object : androidx.work.WorkerFactory() {
-                override fun createWorker(
-                    appContext: Context,
-                    workerClassName: String,
-                    workerParameters: androidx.work.WorkerParameters
-                ): androidx.work.ListenableWorker {
-                    return TaskSyncWorker(appContext, workerParameters, apiService, database)
-                }
-            })
-            .build()
+            val worker = TestListenableWorkerBuilder<TaskSyncWorker>(context)
+                .setWorkerFactory(object : androidx.work.WorkerFactory() {
+                    override fun createWorker(
+                        appContext: Context,
+                        workerClassName: String,
+                        workerParameters: androidx.work.WorkerParameters
+                    ): androidx.work.ListenableWorker {
+                        return TaskSyncWorker(appContext, workerParameters, apiService, database)
+                    }
+                })
+                .build()
 
-        val result = worker.doWork()
-        assertEquals(ListenableWorker.Result.Success::class, result::class)
+            val result = worker.doWork()
+            assertEquals(ListenableWorker.Result.Success::class, result::class)
 
-        val updatedTask = taskDao.observeTasks().first().first()
-        assertEquals(2, updatedTask.syncState) // SYNCED
-    }
+            val updatedTask = taskDao.observeTasks().first().first()
+            assertEquals(2, updatedTask.syncState) // SYNCED
+        }
 
-    @Test
-    fun workerHandlesResponseLossAfterServerSaveAndRetriesIdempotently() = runBlocking {
-        val task = TaskEntity(
-            clientId = "timeout-after-save-uuid-999",
-            title = "Timeout Task",
-            syncState = 0
-        )
-        taskDao.insertTask(task)
+        @Test
+        fun workerHandlesResponseLossAfterServerSaveAndRetriesIdempotently() = runBlocking {
+            val task = TaskEntity(
+                clientId = "timeout-after-save-uuid-999",
+                title = "Timeout Task",
+                syncState = 0
+            )
+            taskDao.insertTask(task)
 
         val serverStoredRecords = ConcurrentHashMap<String, String>()
         val receivedClientIds = CopyOnWriteArrayList<String>()

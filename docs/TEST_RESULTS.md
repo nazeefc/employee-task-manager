@@ -113,3 +113,40 @@ This document records the official Week 3 Day 10 test verification results, fres
   - Background and return navigation during loading worked properly.
   - Navigation between My Tasks and API Tasks within the single application worked seamlessly.
   - Rapid completion taps functioned correctly without duplicate actions or crashes.
+
+---
+
+## Week 3 Day 13 — Debugging Investigation & Physical Device Verification Ledger
+
+### **1. Unit Tests (`:app:testDebugUnitTest`)**
+- **Execution Summary:** Retained from Day 12 (last verified Day 12 test results; not freshly re-executed on Day 13). **27 total unit tests passing** (0 failures, 0 errors, 0 skipped):
+  - `TaskViewModelTest.kt`: **17** passed.
+  - `RoomTaskViewModelTest.kt`: **9** passed.
+  - `ExampleUnitTest.kt`: **1** passed.
+
+### **2. Physical Device Instrumented Worker Tests (`TaskSyncWorkerTest.kt`)**
+- **Execution Target:** Physical Xiaomi 22111317I (Android 14).
+- **Initial Installation Hurdle:** First instrumented test run failed with `INSTALL_FAILED_USER_RESTRICTED` due to USB installation restrictions on the Xiaomi device. After user granted installation permission on the physical device, tests executed successfully.
+- **Executed Instrumented Test Methods & Results:**
+  - `workerHandlesResponseLossAfterServerSaveAndRetriesIdempotently()`: **PASSED (1/1)**. Verified that when HTTP response is dropped after server-side save, same-ID retry succeeds idempotently with single server record via client `clientId` preservation and server `putIfAbsent` logic.
+  - `workerResetsStuckSyncingTasksToPending()`: **PASSED (1/1)**. Started with `syncState = 1` (`SYNCING`), executed `doWork()`, and verified worker success (`Result.success`) and final database state `syncState = 2` (`SYNCED`). Note: The intermediate `PENDING` reset was executed internally during worker startup logic (`taskDao.resetSyncingTasksToPending()`) and was not directly asserted by a separate test assertion.
+
+### **3. Physical Device Real Sync & Rotation Verification**
+- **Target Device:** Physical Xiaomi 22111317I (Android 14).
+- **Environment & Port Forwarding Setup:**
+  - Initial sync connectivity test `Test-NetConnection 127.0.0.1 -Port 8080` returned `TcpTestSucceeded = False` because mock server was not running.
+  - Started local mock server on host machine: `./gradlew.bat :app:runMockServer`.
+  - Configured ADB port forwarding: `adb reverse tcp:8080 tcp:8080`.
+- **Live Sync Verification:**
+  - New task created on phone successfully synced to host server (`syncState = 2` / `SYNCED`).
+  - Querying `GET http://127.0.0.1:8080/tasks` confirmed 2 uploaded records:
+    1. `title = "task complete rotation test"`, `completed = true`
+    2. `title = "verification"`, `completed = false`
+    *(Each record maintained a distinct `clientId` UUID)*.
+- **Rotation Verification:**
+  - Marked task as Completed on Xiaomi device.
+  - Rotated device screen between portrait and landscape modes.
+  - Task remained Completed in UI, Database Inspector confirmed `completed = 1`, and server payload confirmed `completed = true`.
+
+### **4. Review Status**
+- **Independent Codex Review:** **APPROVED** (4/4 documentation findings verified as resolved).

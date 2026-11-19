@@ -53,3 +53,48 @@ This document maintains the complete historical record of independent Codex read
 - **Verdict:** **APPROVE**.
 - **Remaining Documentation Inaccuracies Within Scope:** None reported.
 - **Notes:** All four documentation findings have been verified as resolved. Day 11 WorkManager instrumentation tests were not executed on-device because test APK installation was blocked on physical device `a77e9f7c1122` (`INSTALL_FAILED_USER_RESTRICTED`), and this limitation is accurately preserved. Historical test and debugging evidence from Day 10 and Day 11 remains fully intact.
+
+---
+
+## 7. Week 3 Day 13: Debugging Investigation & Physical Device Verification
+- **Review Date:** 2026-11-19
+- **Review Scope:** Day 13 debugging evidence and documentation (`docs/DEBUGGING_LOG.md`, `docs/TEST_RESULTS.md`, `docs/CURRENT_STATUS.md`).
+- **Findings & Recommended Corrections:**
+  1. **Finding 1 — Bug A Idempotency Explanation:** Correct the explanation of duplicate prevention. The worker preserves the same `clientId` across retry attempts. The server prevents duplicate records through unique-key storage using `putIfAbsent(clientId, ...)`. Do not claim that `clientId` alone guarantees idempotency.
+  2. **Finding 2 — Bug B Recovery Test Accuracy:** The test `workerResetsStuckSyncingTasksToPending()` starts with `syncState = 1` (`SYNCING`) and verifies that worker execution succeeds (`Result.success`) and the final database state becomes `syncState = 2` (`SYNCED`). Correct any wording claiming that the intermediate `PENDING` state was directly verified by an assertion.
+  3. **Finding 3 — Bug B Root-Cause Confidence:** The initial setup had no mock server running on laptop port 8080, no ADB reverse forwarding, worker `ENQUEUED` with retries, and task remaining `PENDING` (0). After starting `LocalMockTaskServer` and configuring `adb reverse`, live synchronization reached `SYNCED` (2). This strongly supports an environment configuration problem. However, because the exact original network exception was not captured, avoid claiming a fully proven application-code root cause. State that the target SYNCING-stuck bug was not reproduced.
+  4. **Finding 4 — Historical Status and Test Results:** Restore the historical Day 12 independent Codex review result ("4/4 documentation findings resolved; APPROVED"). Preserve accurate Day 12 completion history. Label the 27 passing JVM unit tests as the last verified Day 12 results, not tests freshly executed on Day 13.
+- **Findings Resolved:** 4/4.
+- **Final Re-Review Verdict:** **APPROVE** (4/4 documentation findings verified as resolved).
+- **Remaining Blocking Findings:** None.
+
+---
+
+## 8. Actual Codex Agent — Read-Only Root-Cause Investigation (Week 3 Day 13)
+- **Review Date:** 2026-11-19
+- **Review Scope:** Deep read-only architectural investigation of Bugs A, B, and C in application and worker source code.
+- **Root-Cause Findings:**
+  - **Bug A (Duplicate Task After Retry):**
+    - The worker preserves the same `clientId` across retry attempts during network failures.
+    - The development `LocalMockTaskServer`'s `putIfAbsent(clientId, ...)` map storage ensures only one record is stored for identical requests.
+    - No incorrect state transition or duplicate task creation was demonstrated in code or testing.
+    - Production backend idempotency remains unverified.
+  - **Bug B (Queue Stuck in SYNCING):**
+    - `TaskSyncWorker` resets interrupted `SYNCING` tasks (`syncState = 1`) back to `PENDING` (`syncState = 0`) upon worker startup.
+    - Initial `PENDING` database state and `Result.RETRY` worker results were consistent with an unavailable backend server connection.
+    - Synchronization succeeded completely (`syncState = 2` / `SYNCED`) once `LocalMockTaskServer` was launched and `adb reverse tcp:8080 tcp:8080` port forwarding was configured.
+    - No `SYNCING`-stuck application defect was confirmed.
+    - The exact original network exception was not captured in logs.
+  - **Bug C (Completion Reverses After Rotation):**
+    - Room DB as single source of truth combined with ViewModel `StateFlow` preserves UI state across screen orientation changes.
+    - Task completion status remained `true` in UI, Room database, and mock server payload after rotation.
+    - No completion reversal was demonstrated in the tested scenario.
+  - **Separate Follow-Up Risk:**
+    - `RoomTaskRepository.toggleTaskCompletion()` updates the Room database locally, but does not appear to enqueue new WorkManager synchronization requests.
+    - An already-`SYNCED` task might not upload later completion status changes to the backend.
+    - This is a potential architectural feature limitation, NOT the reproduced rotation bug.
+    - Requires separate verification and user approval before fixing.
+- **Codex Recommendations:**
+  - No source-code changes for the three investigated bugs (Bugs A, B, C).
+  - Preserve all existing unit and instrumented regression tests.
+  - Consider future tests for production backend idempotency, server outage recovery, Activity recreation, and completion state sync after initial task synchronization.

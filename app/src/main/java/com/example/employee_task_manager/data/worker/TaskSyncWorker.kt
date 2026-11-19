@@ -59,40 +59,40 @@ class TaskSyncWorker(
                     completed = task.completed
                 )
 
-                try {
-                    val response = api.uploadTask(request)
-                    if (response.isSuccessful) {
-                        // Transition: SYNCING -> SYNCED (2)
-                        taskDao.updateSyncState(task.id, 2)
-                    } else {
-                        val code = response.code()
-                        if (code in 500..599) {
-                            taskDao.updateSyncState(task.id, 0)
-                            hasRetryableFailure = true
-                            allSuccess = false
-                        } else if (code in 400..499) {
-                            // Permanent 4xx failure: mark as permanent error (3) without infinite retry loops
-                            taskDao.updateSyncState(task.id, 3)
-                            allSuccess = false
+                    try {
+                        val response = api.uploadTask(request)
+                        if (response.isSuccessful) {
+                            // Transition: SYNCING -> SYNCED (2)
+                            taskDao.updateSyncState(task.id, 2)
                         } else {
-                            taskDao.updateSyncState(task.id, 0)
-                            hasRetryableFailure = true
-                            allSuccess = false
+                            val code = response.code()
+                            if (code in 500..599) {
+                                taskDao.updateSyncState(task.id, 0)
+                                hasRetryableFailure = true
+                                allSuccess = false
+                            } else if (code in 400..499) {
+                                // Permanent 4xx failure: mark as permanent error (3) without infinite retry loops
+                                taskDao.updateSyncState(task.id, 3)
+                                allSuccess = false
+                            } else {
+                                taskDao.updateSyncState(task.id, 0)
+                                hasRetryableFailure = true
+                                allSuccess = false
+                            }
                         }
+                    } catch (e: Exception) {
+                        if (e is CancellationException) throw e
+                        taskDao.updateSyncState(task.id, 0)
+                        hasRetryableFailure = true
+                        allSuccess = false
                     }
-                } catch (e: Exception) {
-                    if (e is CancellationException) throw e
-                    taskDao.updateSyncState(task.id, 0)
-                    hasRetryableFailure = true
-                    allSuccess = false
                 }
+
+                return if (allSuccess) Result.success() else if (hasRetryableFailure) Result.retry() else Result.failure()
+
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                return Result.retry()
             }
-
-            return if (allSuccess) Result.success() else if (hasRetryableFailure) Result.retry() else Result.failure()
-
-        } catch (e: Exception) {
-            if (e is CancellationException) throw e
-            return Result.retry()
         }
     }
-}

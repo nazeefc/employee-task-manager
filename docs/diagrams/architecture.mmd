@@ -1,15 +1,50 @@
-flowchart LR
-    View["EmployeeTaskManagerActivity (View)"]
-    VM["TaskViewModel (StateFlow)"]
-    Repo["TaskRepository"]
-    API["REST API (GET /todos)"]
+flowchart TB
+    subgraph UI["UI / Activity Layer"]
+        Activity["EmployeeTaskManagerActivity / DebugApiTestActivity"]
+    end
 
-    View -->|User refresh / init| VM
-    VM -->|Fetch tasks| Repo
-    Repo -->|GET todos| API
-    API -->|JSON TodoDto list| Repo
-    Repo -->|"Mapped List<Task>"| VM
-    VM -->|"TaskUiState StateFlow"| View
+    subgraph ViewModel["ViewModel Layer"]
+        RoomVM["RoomTaskViewModel<br/>(RoomTaskUiState StateFlow)"]
+        ApiVM["TaskViewModel<br/>(TaskUiState StateFlow)"]
+    end
 
-    API -.->|Internet / Server / Parsing Error| Repo
-    Repo -.->|Refresh failure retains in-memory cache| VM
+    subgraph Repository["Repository Layer"]
+        RoomRepo["RoomTaskRepository"]
+        ApiRepo["TaskRepository"]
+    end
+
+    subgraph LocalData["Local Storage & Background Machinery"]
+        DAO["TaskDao / AppDatabase (v2)"]
+        WM["WorkManager"]
+        Worker["TaskSyncWorker (CoroutineWorker)"]
+    end
+
+    subgraph RemoteData["Remote Services"]
+        GetAPI["REST API (GET /todos - JSONPlaceholder)"]
+        SyncAPI["REST API (POST /tasks - LocalMockTaskServer)"]
+    end
+
+    %% Flow 1: Offline Room Flow
+    Activity -->|"1. User actions (createTask, toggle)"| RoomVM
+    RoomVM -->|"2. Delegates persistence"| RoomRepo
+    RoomRepo -->|"3. insertTask() / updateTask()"| DAO
+    DAO -.->|"4. observeTasks() Flow<List<TaskEntity>>"| RoomRepo
+    RoomRepo -.->|"5. Mapped List<Task>"| RoomVM
+    RoomVM -.->|"6. RoomTaskUiState StateFlow"| Activity
+
+    %% Flow 2: Background Synchronization
+    RoomRepo -->|"enqueueUniqueWork(REPLACE)"| WM
+    WM -.->|"Triggers under CONNECTED constraint"| Worker
+    Worker -->|"resetSyncingTasksToPending()<br/>getPendingTasks()"| DAO
+    Worker -->|"updateSyncState(1: SYNCING)"| DAO
+    Worker -->|"POST /tasks (clientId)"| SyncAPI
+    SyncAPI -.->|"200 OK / Response"| Worker
+    Worker -->|"updateSyncState(2: SYNCED / 3: FAILED)"| DAO
+
+    %% Flow 3: GET API Flow
+    Activity -->|"Navigation / fetchTasks()"| ApiVM
+    ApiVM -->|"getTasks()"| ApiRepo
+    ApiRepo -->|"GET /todos"| GetAPI
+    GetAPI -.->|"JSON TodoDto list"| ApiRepo
+    ApiRepo -.->|"Mapped List<Task>"| ApiVM
+    ApiVM -.->|"TaskUiState StateFlow"| Activity

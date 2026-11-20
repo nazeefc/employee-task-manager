@@ -126,9 +126,9 @@ This document records the official Week 3 Day 10 test verification results, fres
 
 ### **2. Physical Device Instrumented Worker Tests (`TaskSyncWorkerTest.kt`)**
 - **Execution Target:** Physical Xiaomi 22111317I (Android 14).
-- **Initial Installation Hurdle:** First instrumented test run failed with `INSTALL_FAILED_USER_RESTRICTED` due to USB installation restrictions on the Xiaomi device. After user granted installation permission on the physical device, tests executed successfully.
+- **Initial Installation Hurdle:** First instrumented test run failed with `INSTALL_FAILED_USER_RESTRICTED`. The second execution attempt completed successfully.
 - **Executed Instrumented Test Methods & Results:**
-  - `workerHandlesResponseLossAfterServerSaveAndRetriesIdempotently()`: **PASSED (1/1)**. Verified that when HTTP response is dropped after server-side save, same-ID retry succeeds idempotently with single server record via client `clientId` preservation and server `putIfAbsent` logic.
+  - `workerHandlesResponseLossAfterServerSaveAndRetriesIdempotently()`: **PASSED (1/1)**. Verified that when HTTP response is dropped after server-side save, same-ID retry succeeds idempotently with single server record via client `clientId` preservation (`timeout-after-save-uuid-999`) and server `putIfAbsent` logic.
   - `workerResetsStuckSyncingTasksToPending()`: **PASSED (1/1)**. Started with `syncState = 1` (`SYNCING`), executed `doWork()`, and verified worker success (`Result.success`) and final database state `syncState = 2` (`SYNCED`). Note: The intermediate `PENDING` reset was executed internally during worker startup logic (`taskDao.resetSyncingTasksToPending()`) and was not directly asserted by a separate test assertion.
 
 ### **3. Physical Device Real Sync & Rotation Verification**
@@ -150,3 +150,79 @@ This document records the official Week 3 Day 10 test verification results, fres
 
 ### **4. Review Status**
 - **Independent Codex Review:** **APPROVED** (4/4 documentation findings verified as resolved).
+
+---
+
+## Week 3 Day 14 — Verified Reliability Test & Device Verification Ledger (20 November 2026)
+
+### **1. JVM Unit Tests (`:app:testDebugUnitTest`)**
+- **Execution Command:** `.\gradlew.bat testDebugUnitTest --rerun-tasks --console=plain`
+- **Execution Date:** 20 November 2026
+- **Execution Result:** **BUILD SUCCESSFUL** in 45s (**27 total tests passing**: 0 failures, 0 errors, 0 skipped).
+- **Test Suite Inventory & Counts:**
+  - `TaskViewModelTest.kt`: **17** passed.
+  - `RoomTaskViewModelTest.kt`: **9** passed.
+  - `ExampleUnitTest.kt`: **1** passed.
+  - **TOTAL:** **27 passed, 0 failed, 0 errors, 0 skipped**.
+- **JUnit XML Report Directory:** `app/build/test-results/testDebugUnitTest/`
+- **Status:** **PASS**.
+
+### **2. Instrumented Tests (`:app:connectedDebugAndroidTest`)**
+- **Execution Command:** `.\gradlew.bat connectedDebugAndroidTest --console=plain`
+- **Execution Date:** 20 November 2026
+- **Execution Target:** Physical Xiaomi 22111317I (Android 14).
+- **Execution Result:** **BUILD SUCCESSFUL** in 28s (**12 total tests passing**: 0 failures, 0 errors, 0 skipped, `correctedTestPresent=True`).
+- **Execution Chronology & Notes:** First installation attempt failed with `INSTALL_FAILED_USER_RESTRICTED`. The next successful run passed **11/11 tests**. An initial run with the first version of the new test passed **12/12 tests in 58s**. After Codex review corrections, one run attempt failed because ADB could not locate the device. The latest run executed successfully with **12/12 tests passing in 28s**.
+- **Executed Instrumented Disconnect Tests:**
+  1. `workerHandlesResponseLossAfterServerSaveAndRetriesIdempotently()`: Fixture `clientId`: `timeout-after-save-uuid-999`. Verified simulated response loss after server-side save (`DISCONNECT_AFTER_REQUEST`), where same-ID retry succeeds idempotently without creating a duplicate server record (proving duplicate prevention when the server has already saved the task).
+  2. `workerRetriesAfterDisconnectDuringRequestBodyUpload()` (**CORRECTED AUTOMATED TEST PASSED**): Fixture `clientId`: `disconnect-during-upload-uuid-888`. `MockWebServer` supplies `DISCONNECT_DURING_REQUEST_BODY` via `Dispatcher.peek()`. Verified assertions:
+     - `AtomicInteger` explicitly confirms `peek()` supplied the disconnect policy (`assertTrue(disconnectPeekCount.get() > 0)`).
+     - First worker execution returns `Result.retry()`.
+     - Task returns to `PENDING` (`syncState = 0`).
+     - Retry succeeds using original `clientId` (`disconnect-during-upload-uuid-888`).
+     - Final state is `SYNCED` (`syncState = 2`).
+     - Mock server stores exactly one task record.
+     - Verifies request-body disconnect recovery (while `workerHandlesResponseLossAfterServerSaveAndRetriesIdempotently` proves duplicate prevention after server-side save).
+- **Automated Test Totals:** **39/39 PASS** (27 JVM Unit Tests + 12 Instrumented Tests).
+- **Status:** **PASS**.
+
+### **3. Debug APK Build & App Launch (`assembleDebug`)**
+- **Execution Command:** `.\gradlew.bat assembleDebug --console=plain`
+- **Execution Date:** 20 November 2026
+- **Execution Result:** **BUILD SUCCESSFUL** in 4s.
+- **Generated APK Path:** `app/build/outputs/apk/debug/app-debug.apk`
+- **Physical Device Launch Verification:** App manually launched successfully on physical Xiaomi phone.
+- **Status:** **PASS**.
+
+### **4. Physical Device Scenario Verification Ledger**
+
+#### **Scenario 1: Offline Task Creation, Restart, and Online Synchronization**
+- **Test Procedure:** Enabled Airplane Mode (OFFLINE), created a new task titled `"day 14"`. Removed the application from Recent Apps and relaunched it while remaining offline. Confirmed task survived restart with Room DB `syncState = 0` (`PENDING`). Turned off Airplane Mode (ONLINE) with host `LocalMockTaskServer` running and `adb reverse tcp:8080 tcp:8080` configured.
+- **Observed Result:** WorkManager `TaskSyncWorker` triggered automatically. Host server received payload with `clientId` `d5097d75-8f2b-4b66-8747-1e288d27d593`. Room DB updated to `syncState = 2` (`SYNCED`).
+- **Status:** **PASS**.
+
+#### **Scenario 2: Repeated Save Taps (Multi-Tap Guarding)**
+- **Test Procedure:** Rapidly tapped Save during task creation with titles `"bolo"` and `"vyvvyvtvt"`.
+- **Observed Result:** UI displayed exactly one task per creation attempt. Host mock server received exactly one record for each title without duplicate task creation.
+- **Status:** **PASS** (for observed creation attempts).
+
+#### **Scenario 3: Network Loss During Upload**
+- **Test Procedure:** Covered via automated instrumented test `workerRetriesAfterDisconnectDuringRequestBodyUpload()` in `:app:connectedDebugAndroidTest` (fixture `disconnect-during-upload-uuid-888`, `DISCONNECT_DURING_REQUEST_BODY` via `Dispatcher.peek()`, `AtomicInteger` peek count verified).
+- **Observed Result:** Interruption during POST body upload returned `Result.retry()`, reset DB task to `syncState = 0` (`PENDING`), and retry uploaded task to `syncState = 2` (`SYNCED`) with 1 mock server record.
+- **Limitation Note:** Physical device mid-flight body drop during real hardware upload remains unverified.
+- **Status:** **PASS** (Automated instrumented test PASSED).
+
+#### **Scenario 4: Screen Rotation**
+- **Test Procedure:** Performed manual device rotation (portrait to landscape and back) while the API Task List was actively loading on the physical Xiaomi device.
+- **Observed Result:** App did not crash and tasks displayed correctly upon load completion.
+- **Status:** **PASS** (Observed manual rotation during loading PASSED).
+
+#### **Scenario 5: Process Death and Recovery**
+- **Test Procedure:** App launched (original PID: `14082`). Executed `adb shell am kill com.example.employee_task_manager` to terminate the background process. Verified via `pidof` that no process remained. Relaunched the app.
+- **Observed Result:** App relaunched cleanly and all existing tasks remained visible in the UI. (Note: Verified process termination and task visibility after relaunch; no separate post-relaunch Room Database Inspector check was performed).
+- **Limitation Note:** Process death specifically during an active network upload stream was not verified.
+- **Status:** **PARTIAL** (Process kill & relaunch task visibility PASSED; process death during active upload unverified).
+
+### **5. Outstanding Delivery Items**
+- **Required Screenshots:** **PENDING** (to be captured/attached).
+- **GitHub Pull Request Delivery:** **PENDING** (to be submitted upon final authorization).

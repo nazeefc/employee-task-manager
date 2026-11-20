@@ -98,3 +98,43 @@ This document maintains the complete historical record of independent Codex read
   - No source-code changes for the three investigated bugs (Bugs A, B, C).
   - Preserve all existing unit and instrumented regression tests.
   - Consider future tests for production backend idempotency, server outage recovery, Activity recreation, and completion state sync after initial task synchronization.
+
+---
+
+## 9. Week 3 Day 14 — Independent Codex Review and Final Approval
+- **Review Date:** 20 November 2026
+- **Review Scope:** Day 14 reliability test coverage implementation (`TaskSyncWorkerTest.kt`) and test evidence documentation.
+
+### 1. Initial Codex Review
+- **Initial Verdict:** **CHANGES REQUIRED**
+- **Findings & Requested Corrections:**
+  - **Finding 1 — MEDIUM:** The initial request-body disconnect test implementation did not explicitly assert that `Dispatcher.peek()` supplied `DISCONNECT_DURING_REQUEST_BODY` before reading the body.
+  - **Finding 2 — LOW:** The initial test name (`workerHandlesDisconnectDuringRequestBodyUploadAndRetriesIdempotently`) overstated idempotency coverage, as the test primarily verified interrupted-upload recovery rather than duplicate prevention after a server-side save.
+
+### 2. Implemented Corrections
+- **Finding 1 Resolution:**
+  - Added `val disconnectPeekCount = AtomicInteger(0)`.
+  - Incremented `disconnectPeekCount` whenever `peek()` returned `SocketPolicy.DISCONNECT_DURING_REQUEST_BODY`.
+  - Added explicit assertion: `assertTrue(disconnectPeekCount.get() > 0)`.
+- **Finding 2 Resolution:**
+  - Renamed the test method to `workerRetriesAfterDisconnectDuringRequestBodyUpload()`.
+  - Clarified that this test verifies request-body disconnect recovery, while the separate existing test `workerHandlesResponseLossAfterServerSaveAndRetriesIdempotently()` remains responsible for proving duplicate prevention when the server has already saved the task.
+
+### 3. Verified Test Results
+- **JVM Unit Tests (`:app:testDebugUnitTest`):** **27/27 PASS**
+- **Physical Device Instrumented Tests (`:app:connectedDebugAndroidTest`):** **12/12 PASS** (0 failures, 0 errors, 0 skipped; latest run completed in 28s on physical Xiaomi 22111317I, Android 14).
+- **Total Automated Tests:** **39/39 PASS**
+- **JUnit XML Verification:** Confirmed the corrected test name (`workerRetriesAfterDisconnectDuringRequestBodyUpload`) is present and passing in test execution output.
+- **Git Formatting Check:** `git diff --check` returned blank (**PASS**).
+
+### 4. Final Codex Re-Review Verdict
+- **Finding 1:** **RESOLVED**
+- **Finding 2:** **RESOLVED**
+- **New Blocking Findings:** **NONE**
+- **Final Independent Codex Verdict:** **APPROVED**
+
+### 5. Remaining Delivery Items (Outside Code Review Scope)
+- **Required Screenshots:** **PENDING** (to be captured/attached).
+- **Final Pull Request Submission:** **PENDING** (to be submitted upon authorization).
+- **Day 14 Git Commit and Push:** **PENDING** (no commits/pushes performed).
+- **Process Death During Active Upload Stream:** **UNVERIFIED** (process kill and relaunch recovery PASSED; process death during active upload unverified).

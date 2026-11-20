@@ -176,3 +176,40 @@
 - **Source Code Changes:** No source-code modifications required for Bugs A, B, or C.
 - **Regression Tests:** Preserve all existing JVM unit tests and instrumented worker tests.
 - **Future Test Considerations:** Consider adding future test coverage for production backend idempotency, server outage recovery, Activity recreation, and completion state synchronization after initial task upload.
+
+---
+
+## Week 3 Day 14 — Reliability & Defect Investigation Verification (20 November 2026)
+
+### 1. Offline Task Creation, Restart, and Background Sync
+- **Procedure:** Created task titled `"day 14"` under Airplane Mode (OFFLINE). App removed from Recent Apps and relaunched offline. Internet restored (ONLINE) with `LocalMockTaskServer` and `adb reverse tcp:8080 tcp:8080`.
+- **Observation:** Initial Room state `syncState = 0` (`PENDING`). After reconnecting, `TaskSyncWorker` uploaded payload with `clientId = "d5097d75-8f2b-4b66-8747-1e288d27d593"`. Host mock server stored task and Room state updated to `syncState = 2` (`SYNCED`).
+- **Verification Status:** **PASS**.
+
+### 2. Rapid Multi-Tap Save Verification
+- **Procedure:** Rapidly tapped Save button during task creation for titles `"bolo"` and `"vyvvyvtvt"`.
+- **Observation:** Exactly one task item appeared in UI per creation attempt, and exactly one server record was stored per title.
+- **Verification Status:** **PASS** (for observed creation attempts).
+
+### 3. Network Disconnect / Response-Loss Handshake
+- **Procedure:** Instrumented tests executed in `:app:connectedDebugAndroidTest` suite on physical Xiaomi 22111317I (Android 14, 12/12 passed in 28s):
+  1. `workerHandlesResponseLossAfterServerSaveAndRetriesIdempotently()`: Fixture `timeout-after-save-uuid-999`, `DISCONNECT_AFTER_REQUEST`. Proves duplicate prevention when the server has already saved the task.
+  2. `workerRetriesAfterDisconnectDuringRequestBodyUpload()`: Fixture `disconnect-during-upload-uuid-888`, `DISCONNECT_DURING_REQUEST_BODY` via `Dispatcher.peek()`. Proves request-body disconnect recovery.
+- **Observation:** Verified that `AtomicInteger` confirms `peek()` supplied the disconnect policy (`disconnectPeekCount.get() > 0`), first execution returns `Result.retry()`, task returns to `PENDING` (`syncState = 0`), retry succeeds using original `clientId` (`disconnect-during-upload-uuid-888`), final DB state becomes `SYNCED` (`syncState = 2`), and mock server stores exactly 1 record.
+- **Limitation:** Physical device mid-flight body drop during real hardware upload stream remains unverified.
+- **Verification Status:** **PASS** (Automated unit/instrumented level).
+
+### 4. Configuration Change (Rotation) Retention
+- **Procedure:** Manual device screen rotation between portrait and landscape modes while the API Task List was actively loading on physical Xiaomi device.
+- **Observation:** App did not crash and tasks displayed correctly upon load completion.
+- **Verification Status:** **PASS**.
+
+### 5. System Process Death & Persistence Recovery
+- **Procedure:** Background app process (PID `14082`) terminated via `adb shell am kill com.example.employee_task_manager`. Confirmed process death (`pidof` returned empty), then relaunched app manually.
+- **Observation:** App launched cleanly and existing tasks remained visible in the UI. (Process termination and UI task visibility verified after relaunch; no separate post-relaunch Room Database Inspector check performed).
+- **Limitation:** Process death specifically during an active background upload stream was not verified.
+- **Verification Status:** **PARTIAL**.
+
+### 6. Pending Delivery Verification Artifacts
+- **Required Screenshots:** **PENDING**.
+- **Pull Request Submission:** **PENDING**.

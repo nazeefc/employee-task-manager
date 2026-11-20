@@ -5,27 +5,40 @@ sequenceDiagram
     participant DAO as TaskDao (Room DB)
     participant WM as WorkManager
     participant Worker as TaskSyncWorker
-    participant Server as MockWebServer (Test API)
+    participant Server as Server (LocalMockTaskServer / API)
 
+    Note over UI,WM: Offline Task Creation & Scheduling
     UI->>VM: createTask(title, description, priority)
     VM->>Repo: createTask(...)
-    Repo->>DAO: insertTask(entity: PENDING, clientId: UUID)
-    DAO-->>Repo: Insert Success
-    Repo->>WM: Enqueue Unique Sync Work (CONNECTED constraint)
-    WM-->>Worker: Trigger when internet available
-    Worker->>DAO: Get PENDING tasks
+    Repo->>DAO: insertTask(entity: syncState = 0 [PENDING], clientId: UUID)
+    DAO-->>Repo: Insert Success & observeTasks() Flow update
+    Repo-->>VM: Flow emits mapped List<Task>
+    VM-->>UI: RoomTaskUiState.Success(tasks) StateFlow emits to Activity
+    Repo->>WM: enqueueUniqueWork("TaskSyncWork", REPLACE, CONNECTED constraint)
+
+    Note over WM,Server: Background Synchronization Execution
+    WM-->>Worker: Executes doWork() when NetworkType.CONNECTED
+    Worker->>DAO: resetSyncingTasksToPending() (recovers stuck syncState: 1 -> 0)
+    Worker->>DAO: getPendingTasks() (syncState = 0)
     DAO-->>Worker: List<TaskEntity>
-    Worker->>DAO: Mark tasks SYNCING
-    Worker->>Server: POST /tasks (clientId, title, priority, etc.)
-    alt Success (2xx)
-        Server-->>Worker: 200 OK / Created
-        Worker->>DAO: Mark tasks SYNCED
-        DAO-->>UI: Room Flow emits updated list (UI shows SYNCED / updated status)
-    else Temporary Failure (5xx / Timeout)
-        Server-->>Worker: 500 Server Error / Timeout
-        Worker->>DAO: Reset tasks PENDING
-        Note over Worker,Server: WorkManager retries with exponential backoff
-    else Permanent Failure (4xx)
-        Server-->>Worker: 400 Bad Request
-        Worker->>DAO: Handle error / prevent infinite retry
+    Worker->>DAO: updateSyncState(id, syncState = 1 [SYNCING])
+    Worker->>Server: POST /tasks (TaskUploadRequest with stable clientId)
+    Note over Server: LocalMockTaskServer stores payload by clientId via putIfAbsent()
+
+    alt Success (HTTP 2xx Response)
+        Server-->>Worker: 200 OK (TaskUploadResponse)
+        Worker->>DAO: updateSyncState(id, syncState = 2 [SYNCED])
+        Worker-->>WM: Returns Result.success()
+        DAO-->>Repo: observeTasks() Flow emits updated List<TaskEntity>
+        Repo-->>VM: Flow emits mapped List<Task>
+        VM-->>UI: RoomTaskUiState.Success(tasks) StateFlow emits to Activity
+    else Temporary Failure (HTTP 5xx / Network Disconnect / Timeout)
+        Server-->>Worker: 5xx Server Error / IOException
+        Worker->>DAO: updateSyncState(id, syncState = 0 [PENDING])
+        Worker-->>WM: Returns Result.retry()
+        Note over Worker,WM: WorkManager reschedules execution with exponential backoff
+    else Permanent Failure (HTTP 4xx Response)
+        Server-->>Worker: 4xx Client Error (e.g. 400 Bad Request)
+        Worker->>DAO: updateSyncState(id, syncState = 3 [FAILED / PERMANENT_ERROR])
+        Worker-->>WM: Returns Result.failure()
     end

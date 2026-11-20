@@ -28,6 +28,8 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 @RunWith(AndroidJUnit4::class)
 class TaskSyncWorkerTest {
@@ -256,5 +258,88 @@ class TaskSyncWorkerTest {
 
         val updatedTask = taskDao.observeTasks().first().single()
         assertEquals(2, updatedTask.syncState) // SYNCED
+    }
+
+    @Test
+    fun workerRetriesAfterDisconnectDuringRequestBodyUpload() = runBlocking {
+        val task = TaskEntity(
+            clientId = "disconnect-during-upload-uuid-888",
+            title = "Body Interrupt Task",
+            description = "Test request body disconnect",
+            priority = "High",
+            completed = false,
+            syncState = 0 // PENDING
+        )
+        taskDao.insertTask(task)
+
+        val serverStoredRecords = ConcurrentHashMap<String, String>()
+        val receivedClientIds = CopyOnWriteArrayList<String>()
+        val disconnectBodyOnPeek = AtomicBoolean(true)
+        val disconnectPeekCount = AtomicInteger(0)
+
+        mockWebServer.dispatcher = object : Dispatcher() {
+            override fun peek(): MockResponse {
+                return if (disconnectBodyOnPeek.get()) {
+                    disconnectPeekCount.incrementAndGet()
+                    MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_DURING_REQUEST_BODY)
+                } else {
+                    MockResponse()
+                        .setResponseCode(200)
+                        .setBody("{\"clientId\":\"disconnect-during-upload-uuid-888\",\"status\":\"success\"}")
+                }
+            }
+
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                val requestBody = request.body.readUtf8()
+                val clientId = Gson().fromJson(
+                    requestBody,
+                    com.example.employee_task_manager.data.remote.TaskUploadRequest::class.java
+                ).clientId
+                receivedClientIds.add(clientId)
+                serverStoredRecords.putIfAbsent(clientId, requestBody)
+
+                return MockResponse()
+                    .setResponseCode(200)
+                    .setBody("{\"clientId\":\"$clientId\",\"status\":\"success\"}")
+            }
+        }
+
+        val worker = TestListenableWorkerBuilder<TaskSyncWorker>(context)
+            .setWorkerFactory(object : androidx.work.WorkerFactory() {
+                override fun createWorker(
+                    appContext: Context,
+                    workerClassName: String,
+                    workerParameters: androidx.work.WorkerParameters
+                ): androidx.work.ListenableWorker {
+                    return TaskSyncWorker(appContext, workerParameters, apiService, database)
+                }
+            })
+            .build()
+
+        // Attempt 1: peek() returns DISCONNECT_DURING_REQUEST_BODY before body is read.
+        // MockWebServer closes connection during request body transfer.
+        val firstResult = worker.doWork()
+        assertEquals(ListenableWorker.Result.Retry::class, firstResult::class)
+        assertTrue(disconnectPeekCount.get() > 0)
+
+        // Task returns to syncState = 0 (PENDING) for retry and no server record was saved.
+        val pendingTask = taskDao.observeTasks().first().single()
+        assertEquals(0, pendingTask.syncState)
+        assertTrue(receivedClientIds.isEmpty())
+        assertTrue(serverStoredRecords.isEmpty())
+
+        // Prepare dispatcher for Attempt 2: retry should succeed cleanly.
+        disconnectBodyOnPeek.set(false)
+
+        // Attempt 2: Successful retry uploading request body and saving task.
+        val retryResult = worker.doWork()
+        assertEquals(ListenableWorker.Result.Success::class, retryResult::class)
+
+        // Verify task becomes syncState = 2 (SYNCED), original clientId was uploaded, and no duplicates exist.
+        val syncedTask = taskDao.observeTasks().first().single()
+        assertEquals(2, syncedTask.syncState)
+        assertEquals(listOf("disconnect-during-upload-uuid-888"), receivedClientIds)
+        assertEquals(1, serverStoredRecords.size)
+        assertTrue(serverStoredRecords.containsKey("disconnect-during-upload-uuid-888"))
     }
 }
